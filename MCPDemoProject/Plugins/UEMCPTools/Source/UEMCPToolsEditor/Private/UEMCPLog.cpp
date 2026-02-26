@@ -1,0 +1,3 @@
+#include "UEMCPLog.h"
+
+DEFINE_LOG_CATEGORY(LogUEMCPTools);
