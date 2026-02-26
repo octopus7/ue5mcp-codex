@@ -4,11 +4,13 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/Engine.h"
 #include "MCPSidebarWidget.h"
+#include "UObject/ConstructorHelpers.h"
+#include "UObject/SoftObjectPath.h"
 
 AMCPSidebarPlayerController::AMCPSidebarPlayerController()
 {
-	SidebarWidgetClass = UMCPSidebarWidget::StaticClass();
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] PlayerController constructed. SidebarWidgetClass=%s"), *GetNameSafe(SidebarWidgetClass));
+	ResolveSidebarWidgetClass();
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] PlayerController constructed. SidebarWidgetClass=%s"), *GetNameSafe(SidebarWidgetClass.Get()));
 }
 
 void AMCPSidebarPlayerController::BeginPlay()
@@ -25,6 +27,38 @@ void AMCPSidebarPlayerController::BeginPlayingState()
 	TryCreateSidebarWidget();
 }
 
+void AMCPSidebarPlayerController::ResolveSidebarWidgetClass()
+{
+	static const TCHAR* PreferredClassPath = TEXT("/Game/UI/Widget/WBP_MCPSidebar.WBP_MCPSidebar_C");
+	static const TCHAR* PreferredAssetPath = TEXT("/Game/UI/Widget/WBP_MCPSidebar");
+
+	UClass* LoadedClass = LoadClass<UMCPSidebarWidget>(nullptr, PreferredClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PreferredClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPSidebarWidget>();
+	}
+
+	if (LoadedClass == nullptr)
+	{
+		static ConstructorHelpers::FClassFinder<UMCPSidebarWidget> SidebarWidgetBPClass(PreferredAssetPath);
+		if (SidebarWidgetBPClass.Succeeded())
+		{
+			LoadedClass = SidebarWidgetBPClass.Class;
+		}
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		SidebarWidgetClass = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Loaded sidebar widget blueprint class: %s"), *GetNameSafe(LoadedClass));
+		return;
+	}
+
+	SidebarWidgetClass = UMCPSidebarWidget::StaticClass();
+	UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] WBP_MCPSidebar not found at %s. Falling back to native UMCPSidebarWidget."), PreferredClassPath);
+}
+
 void AMCPSidebarPlayerController::TryCreateSidebarWidget()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] TryCreateSidebarWidget called."));
@@ -33,6 +67,11 @@ void AMCPSidebarPlayerController::TryCreateSidebarWidget()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Skipped widget creation: controller is not local."));
 		return;
+	}
+
+	if (SidebarWidgetClass == nullptr)
+	{
+		ResolveSidebarWidgetClass();
 	}
 
 	if (SidebarWidgetClass == nullptr)

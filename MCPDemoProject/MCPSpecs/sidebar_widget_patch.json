@@ -1,0 +1,79 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Widget/WBP_MCPSidebar",
+  "parent_class_path": "/Script/MCPDemoProject.MCPSidebarWidget",
+  "operations": [
+    {
+      "op": "add_widget",
+      "key": "SidebarPanel",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "SidebarPanel"
+    },
+    {
+      "op": "add_widget",
+      "key": "MenuButtonColumn",
+      "parent_key": "SidebarPanel",
+      "widget_class": "/Script/UMG.VerticalBox",
+      "widget_name": "MenuButtonColumn"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu1Button",
+      "parent_key": "MenuButtonColumn",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "Menu1Button"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu1Label",
+      "parent_key": "Menu1Button",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "Menu1Label"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu2Button",
+      "parent_key": "MenuButtonColumn",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "Menu2Button"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu2Label",
+      "parent_key": "Menu2Button",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "Menu2Label"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu3Button",
+      "parent_key": "MenuButtonColumn",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "Menu3Button"
+    },
+    {
+      "op": "add_widget",
+      "key": "Menu3Label",
+      "parent_key": "Menu3Button",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "Menu3Label"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "SidebarPanel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "Menu1Button"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "Menu2Button"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "Menu3Button"
+    }
+  ]
+}

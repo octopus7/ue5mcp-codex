@@ -6,7 +6,7 @@
 
 class UBorder;
 class UButton;
-class UVerticalBox;
+class UTextBlock;
 
 UCLASS()
 class MCPDEMOPROJECT_API UMCPSidebarWidget : public UUserWidget
@@ -27,11 +27,15 @@ protected:
 	void HandleMenu3Clicked();
 
 private:
-	void BuildSidebarLayout();
-	UButton* CreateMenuButton(UVerticalBox* ParentBox, const FString& Label, const FLinearColor& ButtonTint);
+	void ResolveWidgets();
+	void ApplyVisualStyle();
+	void ApplyLabels();
 	void ShowDebugMessage(const FString& Message, const FColor& Color) const;
 
 private:
+	UPROPERTY(Transient)
+	TObjectPtr<UBorder> SidebarPanel;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UButton> Menu1Button;
 
@@ -40,4 +44,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UButton> Menu3Button;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> Menu1Label;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> Menu2Label;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTextBlock> Menu3Label;
 };

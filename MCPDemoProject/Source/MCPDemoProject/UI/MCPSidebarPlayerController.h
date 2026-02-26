@@ -19,6 +19,7 @@ protected:
 	virtual void BeginPlayingState() override;
 
 private:
+	void ResolveSidebarWidgetClass();
 	void TryCreateSidebarWidget();
 
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
