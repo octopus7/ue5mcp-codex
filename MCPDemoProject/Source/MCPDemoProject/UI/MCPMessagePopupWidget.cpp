@@ -1,68 +1,39 @@
 #include "MCPMessagePopupWidget.h"
 
-#include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
-
-namespace
-{
-template <typename TWidgetType>
-TWidgetType* FindNamedWidget(UWidgetTree* WidgetTree, const TCHAR* ManagedName, const TCHAR* LegacyName = nullptr)
-{
-	if (WidgetTree == nullptr)
-	{
-		return nullptr;
-	}
-
-	if (ManagedName != nullptr)
-	{
-		if (TWidgetType* Found = Cast<TWidgetType>(WidgetTree->FindWidget(FName(ManagedName))))
-		{
-			return Found;
-		}
-	}
-
-	if (LegacyName != nullptr)
-	{
-		return Cast<TWidgetType>(WidgetTree->FindWidget(FName(LegacyName)));
-	}
-
-	return nullptr;
-}
-}
 
 void UMCPMessagePopupWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	ResolveWidgets();
 	ApplyDefaultTexts();
 
-	if (OkButton != nullptr)
+	if (MCP_OkButton != nullptr)
 	{
-		OkButton->OnClicked.RemoveDynamic(this, &UMCPMessagePopupWidget::HandleOkClicked);
-		OkButton->OnClicked.AddDynamic(this, &UMCPMessagePopupWidget::HandleOkClicked);
+		MCP_OkButton->OnClicked.RemoveDynamic(this, &UMCPMessagePopupWidget::HandleOkClicked);
+		MCP_OkButton->OnClicked.AddDynamic(this, &UMCPMessagePopupWidget::HandleOkClicked);
 	}
 
 	bCloseBroadcasted = false;
 
 	UE_LOG(LogTemp, Log, TEXT("[MCPPopup] NativeConstruct. Dim=%s Panel=%s OK=%s"),
-		DimBlocker != nullptr ? TEXT("true") : TEXT("false"),
-		PopupPanel != nullptr ? TEXT("true") : TEXT("false"),
-		OkButton != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_DimBlocker != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_PopupPanel != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_OkButton != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPMessagePopupWidget::OpenPopup(const FText& InTitle, const FText& InMessage)
 {
-	if (TitleText != nullptr)
+	if (MCP_TitleText != nullptr)
 	{
-		TitleText->SetText(InTitle);
+		MCP_TitleText->SetText(InTitle);
 	}
 
-	if (MessageText != nullptr)
+	if (MCP_MessageText != nullptr)
 	{
-		MessageText->SetText(InMessage);
+		MCP_MessageText->SetText(InMessage);
 	}
 
 	bCloseBroadcasted = false;
@@ -82,33 +53,23 @@ void UMCPMessagePopupWidget::HandleOkClicked()
 	RemoveFromParent();
 }
 
-void UMCPMessagePopupWidget::ResolveWidgets()
-{
-	DimBlocker = FindNamedWidget<UBorder>(WidgetTree, TEXT("MCP_DimBlocker"), TEXT("DimBlocker"));
-	PopupPanel = FindNamedWidget<UBorder>(WidgetTree, TEXT("MCP_PopupPanel"), TEXT("PopupPanel"));
-	TitleText = FindNamedWidget<UTextBlock>(WidgetTree, TEXT("MCP_TitleText"), TEXT("TitleText"));
-	MessageText = FindNamedWidget<UTextBlock>(WidgetTree, TEXT("MCP_MessageText"), TEXT("MessageText"));
-	OkButton = FindNamedWidget<UButton>(WidgetTree, TEXT("MCP_OkButton"), TEXT("OkButton"));
-	OkLabel = FindNamedWidget<UTextBlock>(WidgetTree, TEXT("MCP_OkLabel"), TEXT("OkLabel"));
-}
-
 void UMCPMessagePopupWidget::ApplyDefaultTexts()
 {
-	if (TitleText != nullptr && TitleText->GetText().IsEmpty())
+	if (MCP_TitleText != nullptr && MCP_TitleText->GetText().IsEmpty())
 	{
-		TitleText->SetText(FText::FromString(TEXT("Message Box")));
+		MCP_TitleText->SetText(FText::FromString(TEXT("Message Box")));
 	}
 
-	if (MessageText != nullptr && MessageText->GetText().IsEmpty())
+	if (MCP_MessageText != nullptr && MCP_MessageText->GetText().IsEmpty())
 	{
-		MessageText->SetText(FText::FromString(TEXT("This is a simple message popup.")));
+		MCP_MessageText->SetText(FText::FromString(TEXT("This is a simple message popup.")));
 	}
 
-	if (OkLabel != nullptr)
+	if (MCP_OkLabel != nullptr)
 	{
-		if (OkLabel->GetText().IsEmpty())
+		if (MCP_OkLabel->GetText().IsEmpty())
 		{
-			OkLabel->SetText(FText::FromString(TEXT("OK")));
+			MCP_OkLabel->SetText(FText::FromString(TEXT("OK")));
 		}
 	}
 }

@@ -37,8 +37,7 @@
     },
     {
       "op": "bind_widget_ref",
-      "key": "btn_confirm",
-      "variable_name": "BtnConfirm"
+      "key": "btn_confirm"
     },
     {
       "op": "bind_event",

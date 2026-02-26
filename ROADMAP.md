@@ -12,6 +12,8 @@ Build a generic, editor-only Unreal MCP plugin that automates UI asset workflows
 - Safe default behavior with dry-run and clear change reports.
 - Preserve user-edited widget assets by default.
 - Incremental delivery with strong test coverage.
+- Bind widget references through `BindWidget` and keep managed naming (`MCP_<Key>`) consistent.
+- Treat visual style as asset-driven SoT (MCPSpec patch + WBP), not runtime styling code.
 
 ## Phases
 
@@ -29,6 +31,7 @@ Build a generic, editor-only Unreal MCP plugin that automates UI asset workflows
 - Expand validation and dry-run diff output.
 - Add regression tests for import, widget generation, binding, and repair paths.
 - Improve diagnostics and command-level error codes.
+- Add binding integrity checks for `BindWidget` mismatches (no fallback lookup).
 
 ### Phase 3 - Scope Expansion
 

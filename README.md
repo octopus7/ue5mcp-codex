@@ -25,6 +25,13 @@ Available tool IDs:
 - `import.apply_folder_rules`
 - `import.scan_and_repair`
 
+Widget/UI implementation policy:
+
+- Widget references are `BindWidget`-first with no runtime name-lookup fallback.
+- Bound widget names must match the managed naming rule: `MCP_<Key>`.
+- Visual style belongs to WBP assets driven by MCPSpec patch specs.
+- Runtime C++ handles behavior only (events, input mode, dynamic text values).
+
 ## Quick Usage
 
 1. Open `MCPDemoProject` in Unreal Editor (plugin starts with the editor).

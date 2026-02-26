@@ -1,0 +1,806 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Widget/WBP_MCPABValuePopup",
+  "parent_class_path": "/Script/MCPDemoProject.MCPABValuePopupWidget",
+  "operations": [
+    {
+      "op": "remove_widget",
+      "key": "DimBlocker"
+    },
+    {
+      "op": "remove_widget",
+      "key": "PopupOutline"
+    },
+    {
+      "op": "remove_widget",
+      "key": "PopupPanel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ContentBox"
+    },
+    {
+      "op": "remove_widget",
+      "key": "CloseButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "CloseLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ASectionRow"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ALabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ADecButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ADecLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "AValueText"
+    },
+    {
+      "op": "remove_widget",
+      "key": "AIncButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "AIncLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BSectionRow"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BDecButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BDecLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BValueText"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BIncButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BIncLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BottomSpacer"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ActionRow"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ConfirmButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ConfirmLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "CancelButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "CancelLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "DimBlocker",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "DimBlocker",
+      "properties": {
+        "insert_index": 0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupOutline",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "PopupOutline",
+      "properties": {
+        "insert_index": 1
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupPanel",
+      "parent_key": "PopupOutline",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "PopupPanel"
+    },
+    {
+      "op": "add_widget",
+      "key": "ContentBox",
+      "parent_key": "PopupPanel",
+      "widget_class": "/Script/UMG.VerticalBox",
+      "widget_name": "ContentBox"
+    },
+    {
+      "op": "add_widget",
+      "key": "CloseButton",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "CloseButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "CloseLabel",
+      "parent_key": "CloseButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "CloseLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "ASectionRow",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.HorizontalBox",
+      "widget_name": "ASectionRow"
+    },
+    {
+      "op": "add_widget",
+      "key": "ALabel",
+      "parent_key": "ASectionRow",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "ALabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "ADecButton",
+      "parent_key": "ASectionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "ADecButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "ADecLabel",
+      "parent_key": "ADecButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "ADecLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "AValueText",
+      "parent_key": "ASectionRow",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "AValueText"
+    },
+    {
+      "op": "add_widget",
+      "key": "AIncButton",
+      "parent_key": "ASectionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "AIncButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "AIncLabel",
+      "parent_key": "AIncButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "AIncLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "BSectionRow",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.HorizontalBox",
+      "widget_name": "BSectionRow"
+    },
+    {
+      "op": "add_widget",
+      "key": "BLabel",
+      "parent_key": "BSectionRow",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "BLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "BDecButton",
+      "parent_key": "BSectionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "BDecButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "BDecLabel",
+      "parent_key": "BDecButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "BDecLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "BValueText",
+      "parent_key": "BSectionRow",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "BValueText"
+    },
+    {
+      "op": "add_widget",
+      "key": "BIncButton",
+      "parent_key": "BSectionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "BIncButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "BIncLabel",
+      "parent_key": "BIncButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "BIncLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "BottomSpacer",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.Spacer",
+      "widget_name": "BottomSpacer"
+    },
+    {
+      "op": "add_widget",
+      "key": "ActionRow",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.HorizontalBox",
+      "widget_name": "ActionRow"
+    },
+    {
+      "op": "add_widget",
+      "key": "ConfirmButton",
+      "parent_key": "ActionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "ConfirmButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "ConfirmLabel",
+      "parent_key": "ConfirmButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "ConfirmLabel"
+    },
+    {
+      "op": "add_widget",
+      "key": "CancelButton",
+      "parent_key": "ActionRow",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "CancelButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "CancelLabel",
+      "parent_key": "CancelButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "CancelLabel"
+    },
+    {
+      "op": "update_widget",
+      "key": "DimBlocker",
+      "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.0,
+        "brush_tint_g": 0.0,
+        "brush_tint_b": 0.0,
+        "brush_tint_a": 0.55,
+        "brush_corner_radius": 0.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 1.0,
+        "slot_alignment_x": 0.0,
+        "slot_alignment_y": 0.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 0.0,
+        "slot_size_y": 0.0,
+        "slot_z_order": 0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "PopupOutline",
+      "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 1.0,
+        "brush_tint_g": 1.0,
+        "brush_tint_b": 1.0,
+        "brush_tint_a": 1.0,
+        "brush_corner_radius": 12.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
+        "slot_anchors_min_x": 0.5,
+        "slot_anchors_min_y": 0.5,
+        "slot_anchors_max_x": 0.5,
+        "slot_anchors_max_y": 0.5,
+        "slot_alignment_x": 0.5,
+        "slot_alignment_y": 0.5,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 560.0,
+        "slot_size_y": 320.0,
+        "slot_z_order": 10
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "PopupPanel",
+      "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.06,
+        "brush_tint_g": 0.06,
+        "brush_tint_b": 0.06,
+        "brush_tint_a": 0.97,
+        "brush_corner_radius": 12.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
+        "slot_halign": "fill",
+        "slot_valign": "fill",
+        "slot_padding": 2.0,
+        "padding_left": 24.0,
+        "padding_top": 20.0,
+        "padding_right": 24.0,
+        "padding_bottom": 20.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ContentBox",
+      "properties": {
+        "slot_halign": "fill",
+        "slot_valign": "fill"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "CloseButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 10.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.78,
+        "button_normal_g": 0.08,
+        "button_normal_b": 0.08,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.9,
+        "button_hovered_g": 0.14,
+        "button_hovered_b": 0.14,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.62,
+        "button_pressed_g": 0.04,
+        "button_pressed_b": 0.04,
+        "button_pressed_a": 1.0,
+        "slot_halign": "right",
+        "slot_padding_bottom": 14.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "CloseLabel",
+      "properties": {
+        "text": "X",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ASectionRow",
+      "properties": {
+        "slot_halign": "fill",
+        "slot_padding_bottom": 10.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ALabel",
+      "properties": {
+        "text": "A",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "AValueText",
+      "properties": {
+        "text": "0",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ADecButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.2,
+        "button_normal_g": 0.2,
+        "button_normal_b": 0.2,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.28,
+        "button_hovered_g": 0.28,
+        "button_hovered_b": 0.28,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.14,
+        "button_pressed_g": 0.14,
+        "button_pressed_b": 0.14,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "AIncButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.2,
+        "button_normal_g": 0.2,
+        "button_normal_b": 0.2,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.28,
+        "button_hovered_g": 0.28,
+        "button_hovered_b": 0.28,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.14,
+        "button_pressed_g": 0.14,
+        "button_pressed_b": 0.14,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ADecLabel",
+      "properties": {
+        "text": "-",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "AIncLabel",
+      "properties": {
+        "text": "+",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BSectionRow",
+      "properties": {
+        "slot_halign": "fill",
+        "slot_padding_bottom": 10.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BLabel",
+      "properties": {
+        "text": "B",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BValueText",
+      "properties": {
+        "text": "0",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BDecButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.2,
+        "button_normal_g": 0.2,
+        "button_normal_b": 0.2,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.28,
+        "button_hovered_g": 0.28,
+        "button_hovered_b": 0.28,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.14,
+        "button_pressed_g": 0.14,
+        "button_pressed_b": 0.14,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BIncButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.2,
+        "button_normal_g": 0.2,
+        "button_normal_b": 0.2,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.28,
+        "button_hovered_g": 0.28,
+        "button_hovered_b": 0.28,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.14,
+        "button_pressed_g": 0.14,
+        "button_pressed_b": 0.14,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BDecLabel",
+      "properties": {
+        "text": "-",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BIncLabel",
+      "properties": {
+        "text": "+",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "BottomSpacer",
+      "properties": {
+        "slot_padding_top": 8.0,
+        "slot_padding_bottom": 8.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ActionRow",
+      "properties": {
+        "slot_halign": "fill"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ConfirmButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.18,
+        "button_normal_g": 0.36,
+        "button_normal_b": 0.18,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.24,
+        "button_hovered_g": 0.46,
+        "button_hovered_b": 0.24,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.14,
+        "button_pressed_g": 0.28,
+        "button_pressed_b": 0.14,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ConfirmLabel",
+      "properties": {
+        "text": "Confirm",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "CancelButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.34,
+        "button_normal_g": 0.14,
+        "button_normal_b": 0.14,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.46,
+        "button_hovered_g": 0.20,
+        "button_hovered_b": 0.20,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.26,
+        "button_pressed_g": 0.10,
+        "button_pressed_b": 0.10,
+        "button_pressed_a": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "CancelLabel",
+      "properties": {
+        "text": "Cancel",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
+      }
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "DimBlocker"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "PopupPanel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CloseButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CloseLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ALabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ADecButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ADecLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "AValueText"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "AIncButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "AIncLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BDecButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BDecLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BValueText"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BIncButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BIncLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "BottomSpacer"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ConfirmButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ConfirmLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CancelButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CancelLabel"
+    }
+  ]
+}

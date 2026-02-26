@@ -27,27 +27,26 @@ protected:
 	void HandleOkClicked();
 
 private:
-	void ResolveWidgets();
 	void ApplyDefaultTexts();
 
 private:
 	bool bCloseBroadcasted = false;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UBorder> DimBlocker;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UBorder> MCP_DimBlocker;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UBorder> PopupPanel;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UBorder> MCP_PopupPanel;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UTextBlock> TitleText;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_TitleText;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UTextBlock> MessageText;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_MessageText;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UButton> OkButton;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> MCP_OkButton;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UTextBlock> OkLabel;
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_OkLabel;
 };

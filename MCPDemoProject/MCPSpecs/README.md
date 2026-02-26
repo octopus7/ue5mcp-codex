@@ -10,11 +10,23 @@ Widget patch operations support:
 - `reorder_widget` with required `properties.insert_index` (or top-level `insert_index` / `new_index`)
 - Existing ops: `update_widget`, `remove_widget`, `bind_widget_ref`, `bind_event`
 
+Binding policy:
+
+- C++ widget fields use `BindWidget` and must match generated widget names exactly (managed naming: `MCP_<Key>`).
+- `bind_widget_ref` sets `bIsVariable=true` on the target widget for Blueprint variable exposure.
+- `bind_widget_ref.variable_name` is legacy/deprecated in M1 and ignored by design (managed identity is preserved).
+- Runtime fallback lookup by widget name is not part of the supported binding path.
+
 `update_widget` style properties:
 
 - `UTextBlock`: `text_color_(r|g|b|a)`, `text_justification`
 - `UBorder`: `border_draw_as`, `brush_tint_(r|g|b|a)`, `brush_corner_radius`, `brush_outline_(r|g|b|a)`, `brush_outline_width`
 - `UButton`: `button_draw_as`, `button_corner_radius`, `button_outline_(r|g|b|a)`, `button_outline_width`, `button_normal_(r|g|b|a)`, `button_hovered_(r|g|b|a)`, `button_pressed_(r|g|b|a)`
+
+Style source of truth policy:
+
+- Widget visual style (color/brush/alignment/padding) is managed in MCPSpecs + WBP assets.
+- Runtime C++ should only handle behavior (input, events, text values), not persistent visual styling.
 
 Request envelope for local bridge:
 

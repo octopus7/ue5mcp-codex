@@ -11,3 +11,6 @@
 9. Run `import.scan_and_repair` and confirm existing textures are corrected.
 10. Invoke any tool with `dry_run=true` and confirm no asset mutation while diff/report is returned.
 11. Use `add_widget`/`reparent_widget` with `insert_index`, and `reorder_widget` to confirm child insertion/reordering works as requested.
+12. Validate `BindWidget` mapping by temporarily renaming one bound widget in WBP and confirm binding failure is detected (no runtime fallback path).
+13. Confirm Widget Editor preview and PIE runtime visuals are aligned for sidebar/popup after reapplying patch specs.
+14. Confirm style changes are applied via MCP patch only (no runtime C++ visual style overrides).
