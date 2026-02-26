@@ -7,6 +7,9 @@
 
 class UBorder;
 class UButton;
+class UImage;
+class USpacer;
+class USizeBox;
 class UTextBlock;
 class UTexture2D;
 class UTileView;
@@ -53,6 +56,9 @@ private:
 	void ApplyDefaultTexts();
 	void ResolveItemWidgetClass();
 	void ResolveIconTextures();
+	void EnsureSelectionInfoWidgets();
+	void RefreshSelectedItemInfo(const UMCPScrollTileItemObject* SelectedItem);
+	void HandleTileSelectionChanged(UObject* SelectedItem);
 	TSubclassOf<UUserWidget> GetEntryClassForItem(UObject* ItemObject);
 	void ResetToInitialItems();
 	void AppendItems(int32 Count);
@@ -65,6 +71,7 @@ private:
 
 	bool bCloseBroadcasted = false;
 	bool bDragScrolling = false;
+	bool bPendingDragScroll = false;
 	float DragStartMouseY = 0.0f;
 	float DragStartScrollOffset = 0.0f;
 	int32 ItemCount = 0;
@@ -104,4 +111,16 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_CountText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_SelectedItemNameText;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> MCP_SelectedItemIconImage;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<USizeBox> MCP_SelectedItemIconSizeBox;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<USpacer> MCP_FooterSpacer;
 };

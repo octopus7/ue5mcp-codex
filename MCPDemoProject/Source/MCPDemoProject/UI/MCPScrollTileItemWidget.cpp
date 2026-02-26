@@ -18,12 +18,29 @@ void UMCPScrollTileItemWidget::NativeConstruct()
 	BuildFallbackWidgetTreeIfNeeded();
 	ApplySquareTileSize();
 	EnsureIconVisualTree();
+	bIsItemSelected = false;
+	UpdateSelectionVisual();
 }
 
 void UMCPScrollTileItemWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
 	IUserObjectListEntry::NativeOnListItemObjectSet(ListItemObject);
+	bIsItemSelected = IsListItemSelected();
 	ApplyItemObject(Cast<UMCPScrollTileItemObject>(ListItemObject));
+}
+
+void UMCPScrollTileItemWidget::NativeOnItemSelectionChanged(bool bIsSelected)
+{
+	IUserListEntry::NativeOnItemSelectionChanged(bIsSelected);
+	bIsItemSelected = bIsSelected;
+	UpdateSelectionVisual();
+}
+
+void UMCPScrollTileItemWidget::NativeOnEntryReleased()
+{
+	IUserListEntry::NativeOnEntryReleased();
+	bIsItemSelected = false;
+	UpdateSelectionVisual();
 }
 
 void UMCPScrollTileItemWidget::ApplySquareTileSize()
@@ -198,10 +215,28 @@ void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
 	}
 }
 
+void UMCPScrollTileItemWidget::UpdateSelectionVisual()
+{
+	if (MCP_ItemBackground == nullptr)
+	{
+		return;
+	}
+
+	FSlateBrush Brush = MCP_ItemBackground->Background;
+	FSlateBrushOutlineSettings OutlineSettings = Brush.OutlineSettings;
+	OutlineSettings.CornerRadii = FVector4(12.0f, 12.0f, 12.0f, 12.0f);
+	OutlineSettings.Color = FSlateColor(bIsItemSelected ? FLinearColor(1.0f, 1.0f, 1.0f, 0.95f) : FLinearColor::Transparent);
+	OutlineSettings.Width = bIsItemSelected ? 3.0f : 0.0f;
+	Brush.OutlineSettings = OutlineSettings;
+	MCP_ItemBackground->SetBrush(Brush);
+}
+
 void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* ItemObject)
 {
 	if (ItemObject == nullptr)
 	{
+		bIsItemSelected = false;
+		UpdateSelectionVisual();
 		return;
 	}
 
@@ -223,8 +258,8 @@ void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* I
 		Brush.TintColor = FSlateColor(ItemObject->BackgroundColor);
 		Brush.OutlineSettings = FSlateBrushOutlineSettings(
 			FVector4(12.0f, 12.0f, 12.0f, 12.0f),
-			FSlateColor(FLinearColor::Transparent),
-			0.0f);
+			FSlateColor(bIsItemSelected ? FLinearColor(1.0f, 1.0f, 1.0f, 0.95f) : FLinearColor::Transparent),
+			bIsItemSelected ? 3.0f : 0.0f);
 		MCP_ItemBackground->SetBrush(Brush);
 		MCP_ItemBackground->SetBrushColor(ItemObject->BackgroundColor);
 	}
@@ -253,4 +288,6 @@ void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* I
 			MCP_ItemIconImage->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
+
+	UpdateSelectionVisual();
 }

@@ -20,14 +20,19 @@ class MCPDEMOPROJECT_API UMCPScrollTileItemWidget : public UUserWidget, public I
 public:
 	virtual void NativeConstruct() override;
 	virtual void NativeOnListItemObjectSet(UObject* ListItemObject) override;
+	virtual void NativeOnItemSelectionChanged(bool bIsSelected) override;
+	virtual void NativeOnEntryReleased() override;
 
 private:
 	void BuildFallbackWidgetTreeIfNeeded();
 	void ApplySquareTileSize();
 	void EnsureIconVisualTree();
+	void UpdateSelectionVisual();
 	void ApplyItemObject(const UMCPScrollTileItemObject* ItemObject);
 
 private:
+	bool bIsItemSelected = false;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UBorder> MCP_ItemBackground;
 

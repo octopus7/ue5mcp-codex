@@ -9,7 +9,10 @@
 #include "Components/CanvasPanelSlot.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
 #include "Components/ListViewBase.h"
+#include "Components/SizeBox.h"
+#include "Components/Spacer.h"
 #include "Components/TextBlock.h"
 #include "Components/TileView.h"
 #include "Components/VerticalBox.h"
@@ -64,16 +67,20 @@ void UMCPScrollTilePopupWidget::NativeConstruct()
 	BuildFallbackWidgetTreeIfNeeded();
 	ResolveItemWidgetClass();
 	ResolveIconTextures();
+	EnsureSelectionInfoWidgets();
 	EnsureTileViewEntryClass(MCP_ItemTileView);
 	ApplyDefaultTexts();
 	RefreshCountText();
+	RefreshSelectedItemInfo(nullptr);
 	bCloseBroadcasted = false;
 
 	if (MCP_ItemTileView != nullptr)
 	{
 		MCP_ItemTileView->SetEntryWidth(172.0f);
 		MCP_ItemTileView->SetEntryHeight(172.0f);
-		MCP_ItemTileView->SetSelectionMode(ESelectionMode::None);
+		MCP_ItemTileView->SetSelectionMode(ESelectionMode::Single);
+		MCP_ItemTileView->OnItemSelectionChanged().RemoveAll(this);
+		MCP_ItemTileView->OnItemSelectionChanged().AddUObject(this, &UMCPScrollTilePopupWidget::HandleTileSelectionChanged);
 		MCP_ItemTileView->OnGetEntryClassForItem().BindUObject(this, &UMCPScrollTilePopupWidget::GetEntryClassForItem);
 	}
 
@@ -97,15 +104,10 @@ FReply UMCPScrollTilePopupWidget::NativeOnMouseButtonDown(const FGeometry& InGeo
 		const FGeometry TileGeometry = MCP_ItemTileView->GetCachedGeometry();
 		if (TileGeometry.IsUnderLocation(InMouseEvent.GetScreenSpacePosition()))
 		{
-			bDragScrolling = true;
+			bPendingDragScroll = true;
+			bDragScrolling = false;
 			DragStartMouseY = InMouseEvent.GetScreenSpacePosition().Y;
 			DragStartScrollOffset = MCP_ItemTileView->GetScrollOffset();
-
-			if (const TSharedPtr<SWidget> CachedWidget = GetCachedWidget())
-			{
-				return FReply::Handled().CaptureMouse(CachedWidget.ToSharedRef());
-			}
-			return FReply::Handled();
 		}
 	}
 
@@ -114,15 +116,26 @@ FReply UMCPScrollTilePopupWidget::NativeOnMouseButtonDown(const FGeometry& InGeo
 
 FReply UMCPScrollTilePopupWidget::NativeOnMouseMove(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
-	if (bDragScrolling && MCP_ItemTileView != nullptr)
+	if ((bPendingDragScroll || bDragScrolling) && MCP_ItemTileView != nullptr)
 	{
 		if (!InMouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
 		{
+			bPendingDragScroll = false;
 			bDragScrolling = false;
 			return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
 		}
 
 		const float DeltaY = InMouseEvent.GetScreenSpacePosition().Y - DragStartMouseY;
+		if (!bDragScrolling && FMath::Abs(DeltaY) >= 6.0f)
+		{
+			bDragScrolling = true;
+		}
+
+		if (!bDragScrolling)
+		{
+			return Super::NativeOnMouseMove(InGeometry, InMouseEvent);
+		}
+
 		const float TargetOffset = FMath::Max(0.0f, DragStartScrollOffset - DeltaY);
 		MCP_ItemTileView->SetScrollOffset(TargetOffset);
 		return FReply::Handled();
@@ -133,10 +146,15 @@ FReply UMCPScrollTilePopupWidget::NativeOnMouseMove(const FGeometry& InGeometry,
 
 FReply UMCPScrollTilePopupWidget::NativeOnMouseButtonUp(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)
 {
-	if (bDragScrolling && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	if ((bPendingDragScroll || bDragScrolling) && InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
+		const bool bWasDragging = bDragScrolling;
+		bPendingDragScroll = false;
 		bDragScrolling = false;
-		return FReply::Handled().ReleaseMouseCapture();
+		if (bWasDragging)
+		{
+			return FReply::Handled();
+		}
 	}
 
 	return Super::NativeOnMouseButtonUp(InGeometry, InMouseEvent);
@@ -463,6 +481,135 @@ void UMCPScrollTilePopupWidget::ResolveIconTextures()
 	}
 }
 
+void UMCPScrollTilePopupWidget::EnsureSelectionInfoWidgets()
+{
+	if (WidgetTree == nullptr || MCP_CountText == nullptr)
+	{
+		return;
+	}
+
+	UHorizontalBox* FooterRow = Cast<UHorizontalBox>(MCP_CountText->GetParent());
+	if (FooterRow == nullptr)
+	{
+		UWidget* FoundFooter = WidgetTree->FindWidget(FName(TEXT("MCP_FooterRow")));
+		FooterRow = Cast<UHorizontalBox>(FoundFooter);
+	}
+	if (FooterRow == nullptr)
+	{
+		return;
+	}
+
+	if (UHorizontalBoxSlot* CountSlot = Cast<UHorizontalBoxSlot>(MCP_CountText->Slot))
+	{
+		FSlateChildSize AutoSize;
+		AutoSize.SizeRule = ESlateSizeRule::Automatic;
+		AutoSize.Value = 0.0f;
+		CountSlot->SetSize(AutoSize);
+		CountSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+		CountSlot->SetVerticalAlignment(VAlign_Center);
+	}
+
+	const int32 AddButtonIndex = (MCP_AddItemsButton != nullptr) ? FooterRow->GetChildIndex(MCP_AddItemsButton) : INDEX_NONE;
+	if (MCP_FooterSpacer == nullptr)
+	{
+		MCP_FooterSpacer = WidgetTree->ConstructWidget<USpacer>(USpacer::StaticClass(), TEXT("MCP_FooterSpacer"));
+		if (MCP_FooterSpacer != nullptr)
+		{
+			const int32 SpacerInsertIndex = (AddButtonIndex != INDEX_NONE) ? AddButtonIndex : FooterRow->GetChildrenCount();
+			FooterRow->InsertChildAt(SpacerInsertIndex, MCP_FooterSpacer);
+			if (UHorizontalBoxSlot* SpacerSlot = Cast<UHorizontalBoxSlot>(MCP_FooterSpacer->Slot))
+			{
+				FSlateChildSize FillSize;
+				FillSize.SizeRule = ESlateSizeRule::Fill;
+				FillSize.Value = 1.0f;
+				SpacerSlot->SetSize(FillSize);
+				SpacerSlot->SetVerticalAlignment(VAlign_Center);
+			}
+		}
+	}
+
+	int32 SelectionInsertIndex = (MCP_FooterSpacer != nullptr) ? FooterRow->GetChildIndex(MCP_FooterSpacer) : FooterRow->GetChildrenCount();
+	if (SelectionInsertIndex == INDEX_NONE)
+	{
+		SelectionInsertIndex = FooterRow->GetChildrenCount();
+	}
+
+	if (MCP_SelectedItemNameText == nullptr)
+	{
+		MCP_SelectedItemNameText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("MCP_SelectedItemNameText"));
+		if (MCP_SelectedItemNameText != nullptr)
+		{
+			MCP_SelectedItemNameText->SetColorAndOpacity(FSlateColor(FLinearColor(0.90f, 0.93f, 0.98f, 1.0f)));
+			FooterRow->InsertChildAt(SelectionInsertIndex, MCP_SelectedItemNameText);
+			if (UHorizontalBoxSlot* NameSlot = Cast<UHorizontalBoxSlot>(MCP_SelectedItemNameText->Slot))
+			{
+				NameSlot->SetVerticalAlignment(VAlign_Center);
+				NameSlot->SetPadding(FMargin(0.0f, 0.0f, 8.0f, 0.0f));
+			}
+			SelectionInsertIndex += 1;
+		}
+	}
+
+	if (MCP_SelectedItemIconSizeBox == nullptr)
+	{
+		MCP_SelectedItemIconSizeBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("MCP_SelectedItemIconSizeBox"));
+		if (MCP_SelectedItemIconSizeBox != nullptr)
+		{
+			MCP_SelectedItemIconSizeBox->SetWidthOverride(40.0f);
+			MCP_SelectedItemIconSizeBox->SetHeightOverride(40.0f);
+			FooterRow->InsertChildAt(SelectionInsertIndex, MCP_SelectedItemIconSizeBox);
+			if (UHorizontalBoxSlot* IconSlot = Cast<UHorizontalBoxSlot>(MCP_SelectedItemIconSizeBox->Slot))
+			{
+				IconSlot->SetVerticalAlignment(VAlign_Center);
+				IconSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+			}
+		}
+	}
+
+	if (MCP_SelectedItemIconImage == nullptr && MCP_SelectedItemIconSizeBox != nullptr)
+	{
+		MCP_SelectedItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_SelectedItemIconImage"));
+		if (MCP_SelectedItemIconImage != nullptr)
+		{
+			MCP_SelectedItemIconImage->SetDesiredSizeOverride(FVector2D(40.0f, 40.0f));
+			MCP_SelectedItemIconSizeBox->SetContent(MCP_SelectedItemIconImage);
+		}
+	}
+}
+
+void UMCPScrollTilePopupWidget::RefreshSelectedItemInfo(const UMCPScrollTileItemObject* SelectedItem)
+{
+	if (MCP_SelectedItemNameText != nullptr)
+	{
+		if (SelectedItem != nullptr)
+		{
+			MCP_SelectedItemNameText->SetText(FText::FromString(FString::Printf(TEXT("Selected: %s"), *SelectedItem->Name.ToString())));
+		}
+		else
+		{
+			MCP_SelectedItemNameText->SetText(FText::FromString(TEXT("Selected: -")));
+		}
+	}
+
+	if (MCP_SelectedItemIconImage != nullptr)
+	{
+		if (SelectedItem != nullptr && SelectedItem->IconTexture != nullptr)
+		{
+			MCP_SelectedItemIconImage->SetBrushFromTexture(SelectedItem->IconTexture, false);
+			MCP_SelectedItemIconImage->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			MCP_SelectedItemIconImage->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+}
+
+void UMCPScrollTilePopupWidget::HandleTileSelectionChanged(UObject* SelectedItem)
+{
+	RefreshSelectedItemInfo(Cast<UMCPScrollTileItemObject>(SelectedItem));
+}
+
 TSubclassOf<UUserWidget> UMCPScrollTilePopupWidget::GetEntryClassForItem(UObject* ItemObject)
 {
 	(void)ItemObject;
@@ -485,6 +632,8 @@ void UMCPScrollTilePopupWidget::ResetToInitialItems()
 	ItemObjects.Reset();
 	ItemCount = 0;
 	AppendItems(InitialItemCount);
+	MCP_ItemTileView->ClearSelection();
+	RefreshSelectedItemInfo(nullptr);
 	MCP_ItemTileView->ScrollToTop();
 }
 
