@@ -1,5 +1,6 @@
 #include "MCPSidebarWidget.h"
 
+#include "MCPMessagePopupWidget.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/BorderSlot.h"
 #include "Components/Border.h"
@@ -9,7 +10,9 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Engine/Engine.h"
+#include "GameFramework/PlayerController.h"
 #include "Styling/SlateBrush.h"
+#include "UObject/SoftObjectPath.h"
 
 namespace
 {
@@ -72,6 +75,7 @@ void UMCPSidebarWidget::NativeConstruct()
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct begin."));
 
 	ResolveWidgets();
+	ResolveMessagePopupClass();
 	ApplyVisualStyle();
 	ApplyLabels();
 
@@ -103,7 +107,23 @@ void UMCPSidebarWidget::NativeConstruct()
 void UMCPSidebarWidget::HandleMenu1Clicked()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu1 clicked."));
-	ShowDebugMessage(TEXT("Menu1 clicked"), FColor::Green);
+
+	UMCPMessagePopupWidget* PopupWidget = GetOrCreateMessagePopup();
+	if (PopupWidget == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open message popup: widget creation failed."));
+		return;
+	}
+
+	if (!PopupWidget->IsInViewport())
+	{
+		PopupWidget->AddToViewport(1000);
+	}
+
+	PopupWidget->OpenPopup(
+		FText::FromString(TEXT("Message Box")),
+		FText::FromString(TEXT("This is a simple message popup.")));
+	SetPopupModalInput(true);
 }
 
 void UMCPSidebarWidget::HandleMenu2Clicked()
@@ -190,24 +210,110 @@ void UMCPSidebarWidget::ApplyLabels()
 {
 	if (Menu1Label != nullptr)
 	{
-		Menu1Label->SetText(FText::FromString(TEXT("Menu1")));
 		Menu1Label->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 		Menu1Label->SetJustification(ETextJustify::Center);
 	}
 
 	if (Menu2Label != nullptr)
 	{
-		Menu2Label->SetText(FText::FromString(TEXT("Menu2")));
 		Menu2Label->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 		Menu2Label->SetJustification(ETextJustify::Center);
 	}
 
 	if (Menu3Label != nullptr)
 	{
-		Menu3Label->SetText(FText::FromString(TEXT("Menu3")));
 		Menu3Label->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 		Menu3Label->SetJustification(ETextJustify::Center);
 	}
+}
+
+void UMCPSidebarWidget::ResolveMessagePopupClass()
+{
+	if (MessagePopupWidgetClass != nullptr)
+	{
+		return;
+	}
+
+	static const TCHAR* PopupClassPath = TEXT("/Game/UI/Widget/WBP_MCPMessagePopup.WBP_MCPMessagePopup_C");
+	UClass* LoadedClass = LoadClass<UMCPMessagePopupWidget>(nullptr, PopupClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PopupClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPMessagePopupWidget>();
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		MessagePopupWidgetClass = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Loaded popup widget class: %s"), *GetNameSafe(LoadedClass));
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Popup widget class not found at %s"), PopupClassPath);
+	}
+}
+
+UMCPMessagePopupWidget* UMCPSidebarWidget::GetOrCreateMessagePopup()
+{
+	if (MessagePopupWidgetInstance != nullptr)
+	{
+		return MessagePopupWidgetInstance;
+	}
+
+	ResolveMessagePopupClass();
+	if (MessagePopupWidgetClass == nullptr)
+	{
+		return nullptr;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (OwningPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] GetOwningPlayer returned null while creating popup."));
+		return nullptr;
+	}
+
+	MessagePopupWidgetInstance = CreateWidget<UMCPMessagePopupWidget>(OwningPlayer, MessagePopupWidgetClass);
+	if (MessagePopupWidgetInstance != nullptr)
+	{
+		MessagePopupWidgetInstance->OnPopupClosed.AddUObject(this, &UMCPSidebarWidget::HandleMessagePopupClosed);
+	}
+
+	return MessagePopupWidgetInstance;
+}
+
+void UMCPSidebarWidget::SetPopupModalInput(bool bEnabled)
+{
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (OwningPlayer == nullptr)
+	{
+		return;
+	}
+
+	if (bEnabled)
+	{
+		FInputModeUIOnly InputMode;
+		if (MessagePopupWidgetInstance != nullptr)
+		{
+			InputMode.SetWidgetToFocus(MessagePopupWidgetInstance->TakeWidget());
+		}
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		OwningPlayer->SetInputMode(InputMode);
+		OwningPlayer->bShowMouseCursor = true;
+		return;
+	}
+
+	FInputModeGameAndUI InputMode;
+	InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	InputMode.SetHideCursorDuringCapture(false);
+	OwningPlayer->SetInputMode(InputMode);
+	OwningPlayer->bShowMouseCursor = true;
+}
+
+void UMCPSidebarWidget::HandleMessagePopupClosed()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Message popup closed by OK."));
+	SetPopupModalInput(false);
 }
 
 void UMCPSidebarWidget::ShowDebugMessage(const FString& Message, const FColor& Color) const

@@ -1,0 +1,219 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Widget/WBP_MCPMessagePopup",
+  "parent_class_path": "/Script/MCPDemoProject.MCPMessagePopupWidget",
+  "operations": [
+    {
+      "op": "remove_widget",
+      "key": "OkLabel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "OkButton"
+    },
+    {
+      "op": "remove_widget",
+      "key": "BodySpacer"
+    },
+    {
+      "op": "remove_widget",
+      "key": "MessageText"
+    },
+    {
+      "op": "remove_widget",
+      "key": "TitleText"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ContentBox"
+    },
+    {
+      "op": "remove_widget",
+      "key": "ContentCanvas"
+    },
+    {
+      "op": "remove_widget",
+      "key": "PopupPanel"
+    },
+    {
+      "op": "remove_widget",
+      "key": "DimBlocker"
+    },
+    {
+      "op": "add_widget",
+      "key": "DimBlocker",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "DimBlocker"
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupPanel",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "PopupPanel"
+    },
+    {
+      "op": "add_widget",
+      "key": "ContentBox",
+      "parent_key": "PopupPanel",
+      "widget_class": "/Script/UMG.VerticalBox",
+      "widget_name": "ContentBox"
+    },
+    {
+      "op": "add_widget",
+      "key": "TitleText",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "TitleText"
+    },
+    {
+      "op": "add_widget",
+      "key": "MessageText",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "MessageText"
+    },
+    {
+      "op": "add_widget",
+      "key": "OkButton",
+      "parent_key": "ContentBox",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "OkButton"
+    },
+    {
+      "op": "add_widget",
+      "key": "OkLabel",
+      "parent_key": "OkButton",
+      "widget_class": "/Script/UMG.TextBlock",
+      "widget_name": "OkLabel"
+    },
+    {
+      "op": "update_widget",
+      "key": "DimBlocker",
+      "properties": {
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 1.0,
+        "slot_alignment_x": 0.0,
+        "slot_alignment_y": 0.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 0.0,
+        "slot_size_y": 0.0,
+        "slot_z_order": 0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "PopupPanel",
+      "properties": {
+        "slot_anchors_min_x": 0.5,
+        "slot_anchors_min_y": 0.5,
+        "slot_anchors_max_x": 0.5,
+        "slot_anchors_max_y": 0.5,
+        "slot_alignment_x": 0.5,
+        "slot_alignment_y": 0.5,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 760.0,
+        "slot_size_y": 360.0,
+        "slot_z_order": 10,
+        "padding_left": 52.0,
+        "padding_top": 40.0,
+        "padding_right": 52.0,
+        "padding_bottom": 52.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "ContentBox",
+      "properties": {
+        "slot_halign": "fill",
+        "slot_valign": "fill"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "TitleText",
+      "properties": {
+        "text": "Message Box"
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "MessageText",
+      "properties": {
+        "text": "This is a simple message popup.",
+        "auto_wrap_text": true,
+        "slot_halign": "center",
+        "slot_valign": "center",
+        "slot_size_rule": "fill",
+        "slot_size_value": 1.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "TitleText",
+      "properties": {
+        "wrap_text_at": 620.0,
+        "slot_padding_bottom": 20.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "MessageText",
+      "properties": {
+        "wrap_text_at": 620.0,
+        "slot_padding_top": 12.0,
+        "slot_padding_bottom": 16.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "OkButton",
+      "properties": {
+        "slot_halign": "fill",
+        "slot_padding_left": 197.0,
+        "slot_padding_right": 197.0,
+        "slot_padding_top": 12.0,
+        "slot_padding_bottom": 32.0
+      }
+    },
+    {
+      "op": "update_widget",
+      "key": "OkLabel",
+      "properties": {
+        "text": "OK"
+      }
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "DimBlocker"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "PopupPanel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ContentBox"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "TitleText"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "MessageText"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "OkButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "OkLabel"
+    }
+  ]
+}

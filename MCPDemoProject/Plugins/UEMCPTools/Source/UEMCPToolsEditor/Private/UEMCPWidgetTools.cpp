@@ -1,11 +1,17 @@
 #include "UEMCPWidgetTools.h"
 
 #include "AssetToolsModule.h"
+#include "Animation/WidgetAnimation.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/Border.h"
+#include "Components/BorderSlot.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/ContentWidget.h"
 #include "Components/PanelWidget.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Components/Widget.h"
 #include "IAssetTools.h"
 #include "Kismet2/BlueprintEditorUtils.h"
@@ -95,6 +101,74 @@ ESlateVisibility ParseVisibilityOrDefault(const FString& InValue, ESlateVisibili
 	return DefaultValue;
 }
 
+bool ParseHorizontalAlignment(const FString& InValue, EHorizontalAlignment& OutValue)
+{
+	const FString Lower = InValue.ToLower();
+	if (Lower == TEXT("fill"))
+	{
+		OutValue = HAlign_Fill;
+		return true;
+	}
+	if (Lower == TEXT("left"))
+	{
+		OutValue = HAlign_Left;
+		return true;
+	}
+	if (Lower == TEXT("center"))
+	{
+		OutValue = HAlign_Center;
+		return true;
+	}
+	if (Lower == TEXT("right"))
+	{
+		OutValue = HAlign_Right;
+		return true;
+	}
+	return false;
+}
+
+bool ParseVerticalAlignment(const FString& InValue, EVerticalAlignment& OutValue)
+{
+	const FString Lower = InValue.ToLower();
+	if (Lower == TEXT("fill"))
+	{
+		OutValue = VAlign_Fill;
+		return true;
+	}
+	if (Lower == TEXT("top"))
+	{
+		OutValue = VAlign_Top;
+		return true;
+	}
+	if (Lower == TEXT("center"))
+	{
+		OutValue = VAlign_Center;
+		return true;
+	}
+	if (Lower == TEXT("bottom"))
+	{
+		OutValue = VAlign_Bottom;
+		return true;
+	}
+	return false;
+}
+
+bool ParseSlateSizeRule(const FString& InValue, ESlateSizeRule::Type& OutValue)
+{
+	const FString Lower = InValue.ToLower();
+	if (Lower == TEXT("auto") || Lower == TEXT("automatic"))
+	{
+		OutValue = ESlateSizeRule::Automatic;
+		return true;
+	}
+	if (Lower == TEXT("fill"))
+	{
+		OutValue = ESlateSizeRule::Fill;
+		return true;
+	}
+	return false;
+}
+
 FString GetManagedKey(const UWidget* Widget);
 
 bool IsManagedWidget(const UWidget* Widget)
@@ -126,10 +200,121 @@ void SetManagedTags(UWidget* Widget, const FString& Key)
 	}
 
 	const FString NormalizedKey = NormalizeKey(Key);
-	const FString TargetName = FString(ManagedNamePrefix) + NormalizedKey;
-	if (Widget->GetName() != TargetName)
+	if (NormalizedKey.IsEmpty())
 	{
-		Widget->Rename(*TargetName, Widget->GetOuter());
+		return;
+	}
+
+	const FString ManagedName = FString(ManagedNamePrefix) + NormalizedKey;
+	if (Widget->GetName() == ManagedName)
+	{
+		return;
+	}
+
+	UObject* ExistingObject = FindObject<UObject>(Widget->GetOuter(), *ManagedName);
+	if (ExistingObject != nullptr && ExistingObject != Widget)
+	{
+		return;
+	}
+
+	Widget->Rename(*ManagedName, Widget->GetOuter());
+}
+
+void RegisterWidgetGuid(UWidgetBlueprint* WidgetBlueprint, UWidget* Widget)
+{
+	if (WidgetBlueprint == nullptr || Widget == nullptr)
+	{
+		return;
+	}
+
+	if (!WidgetBlueprint->WidgetVariableNameToGuidMap.Contains(Widget->GetFName()))
+	{
+		WidgetBlueprint->OnVariableAdded(Widget->GetFName());
+	}
+}
+
+void UnregisterWidgetGuid(UWidgetBlueprint* WidgetBlueprint, UWidget* Widget)
+{
+	if (WidgetBlueprint == nullptr || Widget == nullptr)
+	{
+		return;
+	}
+
+	WidgetBlueprint->OnVariableRemoved(Widget->GetFName());
+}
+
+void CollectWidgetSubtree(UWidget* RootWidget, TArray<UWidget*>& OutWidgets)
+{
+	if (RootWidget == nullptr)
+	{
+		return;
+	}
+
+	OutWidgets.Add(RootWidget);
+
+	if (UPanelWidget* PanelWidget = Cast<UPanelWidget>(RootWidget))
+	{
+		for (int32 ChildIndex = 0; ChildIndex < PanelWidget->GetChildrenCount(); ++ChildIndex)
+		{
+			CollectWidgetSubtree(PanelWidget->GetChildAt(ChildIndex), OutWidgets);
+		}
+	}
+	else if (UContentWidget* ContentWidget = Cast<UContentWidget>(RootWidget))
+	{
+		CollectWidgetSubtree(ContentWidget->GetContent(), OutWidgets);
+	}
+}
+
+void ReconcileWidgetVariableGuids(UWidgetBlueprint* WidgetBlueprint)
+{
+	if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+	{
+		return;
+	}
+
+	TSet<FName> SeenVariableNames;
+	TArray<UWidget*> AllWidgets;
+	WidgetBlueprint->WidgetTree->GetAllWidgets(AllWidgets);
+	for (UWidget* Widget : AllWidgets)
+	{
+		if (Widget == nullptr)
+		{
+			continue;
+		}
+
+		const FName WidgetName = Widget->GetFName();
+		SeenVariableNames.Add(WidgetName);
+		if (!WidgetBlueprint->WidgetVariableNameToGuidMap.Contains(WidgetName))
+		{
+			WidgetBlueprint->WidgetVariableNameToGuidMap.Add(WidgetName, FGuid::NewGuid());
+		}
+	}
+
+	for (UWidgetAnimation* Animation : WidgetBlueprint->Animations)
+	{
+		if (Animation == nullptr)
+		{
+			continue;
+		}
+
+		const FName AnimationName = Animation->GetFName();
+		SeenVariableNames.Add(AnimationName);
+		if (!WidgetBlueprint->WidgetVariableNameToGuidMap.Contains(AnimationName))
+		{
+			WidgetBlueprint->WidgetVariableNameToGuidMap.Add(AnimationName, FGuid::NewGuid());
+		}
+	}
+
+	for (auto It = WidgetBlueprint->WidgetVariableNameToGuidMap.CreateIterator(); It; ++It)
+	{
+		if (!SeenVariableNames.Contains(It.Key()))
+		{
+			It.RemoveCurrent();
+		}
+		else if (!It.Value().IsValid())
+		{
+			It.Value() = FGuid::NewGuid();
+		}
 	}
 }
 
@@ -149,6 +334,14 @@ void BuildWidgetIndex(UWidgetTree* WidgetTree, TMap<FString, UWidget*>& OutByKey
 		if (!Key.IsEmpty())
 		{
 			OutByKey.Add(Key, Widget);
+		}
+		else
+		{
+			const FString NameKey = NormalizeKey(Widget->GetName());
+			if (!NameKey.IsEmpty() && !OutByKey.Contains(NameKey))
+			{
+				OutByKey.Add(NameKey, Widget);
+			}
 		}
 	}
 }
@@ -422,9 +615,14 @@ bool ApplyAddWidgetOp(
 	WidgetBlueprint->Modify();
 	WidgetBlueprint->WidgetTree->Modify();
 
-	const FString DesiredName = Operation.WidgetName.IsEmpty() ? Key : Operation.WidgetName;
+	const FString DesiredName = FString(ManagedNamePrefix) + Key;
+	if (!Operation.WidgetName.IsEmpty() && Operation.WidgetName != DesiredName)
+	{
+		Response.AddWarning(TEXT("add_widget_name_ignored"), TEXT("add_widget.widget_name is ignored to preserve MCP-managed identity."), Operation.WidgetName);
+	}
 	UWidget* NewWidget = WidgetBlueprint->WidgetTree->ConstructWidget<UWidget>(WidgetClass, *DesiredName);
 	SetManagedTags(NewWidget, Key);
+	RegisterWidgetGuid(WidgetBlueprint, NewWidget);
 
 	if (ParentWidget == nullptr)
 	{
@@ -432,16 +630,33 @@ bool ApplyAddWidgetOp(
 	}
 	else
 	{
-		UPanelWidget* ParentPanel = Cast<UPanelWidget>(ParentWidget);
-		if (ParentPanel == nullptr)
+		if (UPanelWidget* ParentPanel = Cast<UPanelWidget>(ParentWidget))
+		{
+			ParentPanel->Modify();
+			ParentPanel->AddChild(NewWidget);
+		}
+		else if (UContentWidget* ParentContent = Cast<UContentWidget>(ParentWidget))
+		{
+			if (ParentContent->GetContent() != nullptr)
+			{
+				Response.SkippedCount += 1;
+				Response.AddWarning(TEXT("skip_content_parent_occupied"), TEXT("Parent content widget already has a child."), Operation.ParentKey);
+				AppendDiffEntry(DiffEntries, TEXT("add_widget"), Key, TEXT("skipped"), TEXT("Parent content widget is occupied"));
+				WidgetBlueprint->WidgetTree->RemoveWidget(NewWidget);
+				return true;
+			}
+
+			ParentContent->Modify();
+			ParentContent->SetContent(NewWidget);
+		}
+		else
 		{
 			Response.SkippedCount += 1;
-			Response.AddWarning(TEXT("skip_non_panel_parent"), TEXT("Parent widget is not a panel and cannot accept children."), Operation.ParentKey);
-			AppendDiffEntry(DiffEntries, TEXT("add_widget"), Key, TEXT("skipped"), TEXT("Parent is not panel"));
+			Response.AddWarning(TEXT("skip_non_container_parent"), TEXT("Parent widget is not a supported container (panel/content widget)."), Operation.ParentKey);
+			AppendDiffEntry(DiffEntries, TEXT("add_widget"), Key, TEXT("skipped"), TEXT("Parent is not container"));
+			WidgetBlueprint->WidgetTree->RemoveWidget(NewWidget);
 			return true;
 		}
-		ParentPanel->Modify();
-		ParentPanel->AddChild(NewWidget);
 	}
 
 	WidgetByKey.Add(Key, NewWidget);
@@ -487,15 +702,26 @@ bool ApplyRemoveWidgetOp(
 	}
 
 	WidgetBlueprint->Modify();
+	WidgetBlueprint->WidgetTree->Modify();
+	TArray<UWidget*> RemovedSubtree;
+	CollectWidgetSubtree(Widget, RemovedSubtree);
+	for (UWidget* RemovedWidget : RemovedSubtree)
+	{
+		UnregisterWidgetGuid(WidgetBlueprint, RemovedWidget);
+	}
 	if (WidgetBlueprint->WidgetTree->RootWidget == Widget)
 	{
 		WidgetBlueprint->WidgetTree->RootWidget = nullptr;
 	}
 
-	if (UPanelWidget* Parent = Widget->GetParent())
+	const bool bRemovedFromTree = WidgetBlueprint->WidgetTree->RemoveWidget(Widget);
+	if (!bRemovedFromTree)
 	{
-		Parent->Modify();
-		Parent->RemoveChild(Widget);
+		if (UPanelWidget* Parent = Widget->GetParent())
+		{
+			Parent->Modify();
+			Parent->RemoveChild(Widget);
+		}
 	}
 
 	WidgetByKey.Remove(Key);
@@ -599,6 +825,20 @@ bool ApplyUpdateWidgetOp(
 	}
 
 	bool bAnyChange = false;
+	const bool bHasSlotPropsRequested =
+		Operation.StringProps.Contains(TEXT("slot_halign")) ||
+		Operation.StringProps.Contains(TEXT("slot_valign")) ||
+		Operation.StringProps.Contains(TEXT("slot_size_rule")) ||
+		Operation.BoolProps.Contains(TEXT("slot_auto_size")) ||
+		Operation.NumberProps.Contains(TEXT("slot_size_value")) ||
+		Operation.NumberProps.Contains(TEXT("slot_padding")) ||
+		Operation.NumberProps.Contains(TEXT("slot_padding_left")) ||
+		Operation.NumberProps.Contains(TEXT("slot_padding_top")) ||
+		Operation.NumberProps.Contains(TEXT("slot_padding_right")) ||
+		Operation.NumberProps.Contains(TEXT("slot_padding_bottom"));
+	bool bRecognizedSlotType = false;
+	bool bAnySlotChange = false;
+
 	if (Operation.BoolProps.Contains(TEXT("is_enabled")))
 	{
 		bAnyChange = true;
@@ -638,6 +878,57 @@ bool ApplyUpdateWidgetOp(
 		}
 	}
 
+	if (Operation.StringProps.Contains(TEXT("text")))
+	{
+		if (UTextBlock* TextBlock = Cast<UTextBlock>(Widget))
+		{
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				TextBlock->Modify();
+				TextBlock->SetText(FText::FromString(Operation.StringProps[TEXT("text")]));
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_text_property_target"), TEXT("text property is only supported for UTextBlock widgets."), Key);
+		}
+	}
+
+	if (Operation.BoolProps.Contains(TEXT("auto_wrap_text")))
+	{
+		if (UTextBlock* TextBlock = Cast<UTextBlock>(Widget))
+		{
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				TextBlock->Modify();
+				TextBlock->SetAutoWrapText(Operation.BoolProps[TEXT("auto_wrap_text")]);
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_auto_wrap_property_target"), TEXT("auto_wrap_text property is only supported for UTextBlock widgets."), Key);
+		}
+	}
+
+	if (Operation.NumberProps.Contains(TEXT("wrap_text_at")))
+	{
+		if (UTextBlock* TextBlock = Cast<UTextBlock>(Widget))
+		{
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				TextBlock->Modify();
+				TextBlock->SetWrapTextAt(Operation.NumberProps[TEXT("wrap_text_at")]);
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_wrap_text_at_property_target"), TEXT("wrap_text_at property is only supported for UTextBlock widgets."), Key);
+		}
+	}
+
 	if (Operation.NumberProps.Contains(TEXT("render_opacity")))
 	{
 		bAnyChange = true;
@@ -658,13 +949,234 @@ bool ApplyUpdateWidgetOp(
 		return false;
 	};
 
+	if (UBorder* BorderWidget = Cast<UBorder>(Widget))
+	{
+		FMargin BorderPadding = BorderWidget->GetPadding();
+		bool bBorderPaddingChanged = false;
+		float NumberValue = 0.0f;
+
+		if (TryGetNumberProp(TEXT("padding"), NumberValue))
+		{
+			BorderPadding = FMargin(NumberValue);
+			bBorderPaddingChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("padding_left"), NumberValue))
+		{
+			BorderPadding.Left = NumberValue;
+			bBorderPaddingChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("padding_top"), NumberValue))
+		{
+			BorderPadding.Top = NumberValue;
+			bBorderPaddingChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("padding_right"), NumberValue))
+		{
+			BorderPadding.Right = NumberValue;
+			bBorderPaddingChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("padding_bottom"), NumberValue))
+		{
+			BorderPadding.Bottom = NumberValue;
+			bBorderPaddingChanged = true;
+		}
+
+		if (bBorderPaddingChanged)
+		{
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				BorderWidget->Modify();
+				BorderWidget->SetPadding(BorderPadding);
+			}
+		}
+	}
+
+	if (UVerticalBoxSlot* VerticalBoxSlot = Cast<UVerticalBoxSlot>(Widget->Slot))
+	{
+		bRecognizedSlotType = true;
+		FMargin SlotPadding = VerticalBoxSlot->GetPadding();
+		EHorizontalAlignment SlotHAlign = VerticalBoxSlot->GetHorizontalAlignment();
+		EVerticalAlignment SlotVAlign = VerticalBoxSlot->GetVerticalAlignment();
+		FSlateChildSize SlotSize = VerticalBoxSlot->GetSize();
+		bool bVerticalSlotChanged = false;
+		float NumberValue = 0.0f;
+
+		if (TryGetNumberProp(TEXT("slot_padding"), NumberValue))
+		{
+			SlotPadding = FMargin(NumberValue);
+			bVerticalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_left"), NumberValue))
+		{
+			SlotPadding.Left = NumberValue;
+			bVerticalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_top"), NumberValue))
+		{
+			SlotPadding.Top = NumberValue;
+			bVerticalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_right"), NumberValue))
+		{
+			SlotPadding.Right = NumberValue;
+			bVerticalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_bottom"), NumberValue))
+		{
+			SlotPadding.Bottom = NumberValue;
+			bVerticalSlotChanged = true;
+		}
+
+		if (const FString* SlotHAlignValue = Operation.StringProps.Find(TEXT("slot_halign")))
+		{
+			EHorizontalAlignment Parsed = SlotHAlign;
+			if (ParseHorizontalAlignment(*SlotHAlignValue, Parsed))
+			{
+				SlotHAlign = Parsed;
+				bVerticalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_halign"), TEXT("Unrecognized slot_halign value."), *SlotHAlignValue);
+			}
+		}
+
+		if (const FString* SlotVAlignValue = Operation.StringProps.Find(TEXT("slot_valign")))
+		{
+			EVerticalAlignment Parsed = SlotVAlign;
+			if (ParseVerticalAlignment(*SlotVAlignValue, Parsed))
+			{
+				SlotVAlign = Parsed;
+				bVerticalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_valign"), TEXT("Unrecognized slot_valign value."), *SlotVAlignValue);
+			}
+		}
+
+		if (const FString* SlotSizeRuleValue = Operation.StringProps.Find(TEXT("slot_size_rule")))
+		{
+			ESlateSizeRule::Type ParsedRule = SlotSize.SizeRule;
+			if (ParseSlateSizeRule(*SlotSizeRuleValue, ParsedRule))
+			{
+				SlotSize.SizeRule = ParsedRule;
+				bVerticalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_size_rule"), TEXT("Unrecognized slot_size_rule value."), *SlotSizeRuleValue);
+			}
+		}
+
+		if (TryGetNumberProp(TEXT("slot_size_value"), NumberValue))
+		{
+			SlotSize.Value = NumberValue;
+			bVerticalSlotChanged = true;
+		}
+
+		if (bVerticalSlotChanged)
+		{
+			bAnySlotChange = true;
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				VerticalBoxSlot->Modify();
+				VerticalBoxSlot->SetPadding(SlotPadding);
+				VerticalBoxSlot->SetHorizontalAlignment(SlotHAlign);
+				VerticalBoxSlot->SetVerticalAlignment(SlotVAlign);
+				VerticalBoxSlot->SetSize(SlotSize);
+			}
+		}
+	}
+
+	if (UBorderSlot* BorderSlot = Cast<UBorderSlot>(Widget->Slot))
+	{
+		bRecognizedSlotType = true;
+		FMargin SlotPadding = BorderSlot->GetPadding();
+		EHorizontalAlignment SlotHAlign = BorderSlot->GetHorizontalAlignment();
+		EVerticalAlignment SlotVAlign = BorderSlot->GetVerticalAlignment();
+		bool bBorderSlotChanged = false;
+		float NumberValue = 0.0f;
+
+		if (TryGetNumberProp(TEXT("slot_padding"), NumberValue))
+		{
+			SlotPadding = FMargin(NumberValue);
+			bBorderSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_left"), NumberValue))
+		{
+			SlotPadding.Left = NumberValue;
+			bBorderSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_top"), NumberValue))
+		{
+			SlotPadding.Top = NumberValue;
+			bBorderSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_right"), NumberValue))
+		{
+			SlotPadding.Right = NumberValue;
+			bBorderSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_bottom"), NumberValue))
+		{
+			SlotPadding.Bottom = NumberValue;
+			bBorderSlotChanged = true;
+		}
+
+		if (const FString* SlotHAlignValue = Operation.StringProps.Find(TEXT("slot_halign")))
+		{
+			EHorizontalAlignment Parsed = SlotHAlign;
+			if (ParseHorizontalAlignment(*SlotHAlignValue, Parsed))
+			{
+				SlotHAlign = Parsed;
+				bBorderSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_halign"), TEXT("Unrecognized slot_halign value."), *SlotHAlignValue);
+			}
+		}
+
+		if (const FString* SlotVAlignValue = Operation.StringProps.Find(TEXT("slot_valign")))
+		{
+			EVerticalAlignment Parsed = SlotVAlign;
+			if (ParseVerticalAlignment(*SlotVAlignValue, Parsed))
+			{
+				SlotVAlign = Parsed;
+				bBorderSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_valign"), TEXT("Unrecognized slot_valign value."), *SlotVAlignValue);
+			}
+		}
+
+		if (bBorderSlotChanged)
+		{
+			bAnySlotChange = true;
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				BorderSlot->Modify();
+				BorderSlot->SetPadding(SlotPadding);
+				BorderSlot->SetHorizontalAlignment(SlotHAlign);
+				BorderSlot->SetVerticalAlignment(SlotVAlign);
+			}
+		}
+	}
+
 	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
 	{
+		bRecognizedSlotType = true;
 		FAnchors Anchors = CanvasSlot->GetAnchors();
 		FVector2D Alignment = CanvasSlot->GetAlignment();
 		FVector2D Position = CanvasSlot->GetPosition();
 		FVector2D Size = CanvasSlot->GetSize();
 		int32 ZOrder = CanvasSlot->GetZOrder();
+		bool bAutoSize = CanvasSlot->GetAutoSize();
 
 		bool bCanvasSlotChanged = false;
 		float NumberValue = 0.0f;
@@ -723,9 +1235,15 @@ bool ApplyUpdateWidgetOp(
 			ZOrder = FMath::RoundToInt(NumberValue);
 			bCanvasSlotChanged = true;
 		}
+		if (Operation.BoolProps.Contains(TEXT("slot_auto_size")))
+		{
+			bAutoSize = Operation.BoolProps[TEXT("slot_auto_size")];
+			bCanvasSlotChanged = true;
+		}
 
 		if (bCanvasSlotChanged)
 		{
+			bAnySlotChange = true;
 			bAnyChange = true;
 			if (!bDryRun)
 			{
@@ -735,18 +1253,25 @@ bool ApplyUpdateWidgetOp(
 				CanvasSlot->SetPosition(Position);
 				CanvasSlot->SetSize(Size);
 				CanvasSlot->SetZOrder(ZOrder);
+				CanvasSlot->SetAutoSize(bAutoSize);
 			}
 		}
 	}
 
+	if (bHasSlotPropsRequested && !bRecognizedSlotType)
+	{
+		const FString SlotClassName = Widget->Slot != nullptr ? Widget->Slot->GetClass()->GetName() : FString(TEXT("null"));
+		Response.AddWarning(TEXT("slot_type_not_supported"), TEXT("slot_* properties were provided but this widget slot type is unsupported."), FString::Printf(TEXT("%s (slot=%s)"), *Key, *SlotClassName));
+	}
+	else if (bHasSlotPropsRequested && !bAnySlotChange)
+	{
+		const FString SlotClassName = Widget->Slot != nullptr ? Widget->Slot->GetClass()->GetName() : FString(TEXT("null"));
+		Response.AddWarning(TEXT("slot_properties_not_applied"), TEXT("slot_* properties were provided but no slot layout change was applied."), FString::Printf(TEXT("%s (slot=%s)"), *Key, *SlotClassName));
+	}
+
 	if (!Operation.WidgetName.IsEmpty())
 	{
-		bAnyChange = true;
-		if (!bDryRun)
-		{
-			Widget->Modify();
-			Widget->Rename(*Operation.WidgetName, Widget->GetOuter());
-		}
+		Response.AddWarning(TEXT("widget_rename_ignored"), TEXT("widget_name update is ignored to avoid variable GUID and object identity conflicts."), Operation.WidgetName);
 	}
 
 	if (bAnyChange)
@@ -917,6 +1442,7 @@ bool ApplyOperationsToWidgetBlueprint(
 	FinalizeDiffJson(DiffEntries, Response);
 	if (!bDryRun)
 	{
+		ReconcileWidgetVariableGuids(WidgetBlueprint);
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
 		WidgetBlueprint->MarkPackageDirty();
 	}

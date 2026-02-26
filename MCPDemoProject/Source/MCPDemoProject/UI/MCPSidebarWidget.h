@@ -7,6 +7,7 @@
 class UBorder;
 class UButton;
 class UTextBlock;
+class UMCPMessagePopupWidget;
 
 UCLASS()
 class MCPDEMOPROJECT_API UMCPSidebarWidget : public UUserWidget
@@ -27,6 +28,12 @@ protected:
 	void HandleMenu3Clicked();
 
 private:
+	void ResolveMessagePopupClass();
+	UMCPMessagePopupWidget* GetOrCreateMessagePopup();
+	void SetPopupModalInput(bool bEnabled);
+
+	void HandleMessagePopupClosed();
+
 	void ResolveWidgets();
 	void ApplyVisualStyle();
 	void ApplyLabels();
@@ -53,4 +60,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UTextBlock> Menu3Label;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Popup")
+	TSubclassOf<UMCPMessagePopupWidget> MessagePopupWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMCPMessagePopupWidget> MessagePopupWidgetInstance;
 };
