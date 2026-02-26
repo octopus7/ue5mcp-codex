@@ -35,6 +35,9 @@ private:
 	TObjectPtr<UImage> MCP_ItemIconImage;
 
 	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<USizeBox> MCP_ItemIconSizeBox;
+
+	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<USizeBox> MCP_ItemSizeBox;
 
 	UPROPERTY(meta = (BindWidget))

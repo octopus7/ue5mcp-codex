@@ -50,9 +50,22 @@ void UMCPScrollTileItemWidget::EnsureIconVisualTree()
 		return;
 	}
 
+	constexpr float IconSize = 128.0f;
+
 	if (MCP_ItemIconImage != nullptr)
 	{
-		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
+		if (MCP_ItemIconSizeBox == nullptr)
+		{
+			MCP_ItemIconSizeBox = Cast<USizeBox>(MCP_ItemIconImage->GetParent());
+		}
+
+		if (MCP_ItemIconSizeBox != nullptr)
+		{
+			MCP_ItemIconSizeBox->SetWidthOverride(IconSize);
+			MCP_ItemIconSizeBox->SetHeightOverride(IconSize);
+		}
+
+		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(IconSize, IconSize));
 		return;
 	}
 
@@ -75,12 +88,21 @@ void UMCPScrollTileItemWidget::EnsureIconVisualTree()
 
 	MCP_ItemBackground->SetContent(Overlay);
 
-	MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
-	if (MCP_ItemIconImage != nullptr)
+	MCP_ItemIconSizeBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("MCP_ItemIconSizeBox"));
+	if (MCP_ItemIconSizeBox != nullptr)
 	{
-		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
-		Overlay->AddChildToOverlay(MCP_ItemIconImage);
-		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconImage->Slot))
+		MCP_ItemIconSizeBox->SetWidthOverride(IconSize);
+		MCP_ItemIconSizeBox->SetHeightOverride(IconSize);
+
+		MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
+		if (MCP_ItemIconImage != nullptr)
+		{
+			MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(IconSize, IconSize));
+			MCP_ItemIconSizeBox->SetContent(MCP_ItemIconImage);
+		}
+
+		Overlay->AddChildToOverlay(MCP_ItemIconSizeBox);
+		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconSizeBox->Slot))
 		{
 			IconSlot->SetHorizontalAlignment(HAlign_Center);
 			IconSlot->SetVerticalAlignment(VAlign_Center);
@@ -138,12 +160,21 @@ void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
 	}
 	MCP_ItemBackground->SetContent(ItemOverlay);
 
-	MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
-	if (MCP_ItemIconImage != nullptr)
+	MCP_ItemIconSizeBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("MCP_ItemIconSizeBox"));
+	if (MCP_ItemIconSizeBox != nullptr)
 	{
-		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
-		ItemOverlay->AddChildToOverlay(MCP_ItemIconImage);
-		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconImage->Slot))
+		MCP_ItemIconSizeBox->SetWidthOverride(128.0f);
+		MCP_ItemIconSizeBox->SetHeightOverride(128.0f);
+
+		MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
+		if (MCP_ItemIconImage != nullptr)
+		{
+			MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
+			MCP_ItemIconSizeBox->SetContent(MCP_ItemIconImage);
+		}
+
+		ItemOverlay->AddChildToOverlay(MCP_ItemIconSizeBox);
+		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconSizeBox->Slot))
 		{
 			IconSlot->SetHorizontalAlignment(HAlign_Center);
 			IconSlot->SetVerticalAlignment(VAlign_Center);
@@ -172,6 +203,17 @@ void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* I
 	if (ItemObject == nullptr)
 	{
 		return;
+	}
+
+	if (MCP_ItemIconSizeBox != nullptr)
+	{
+		MCP_ItemIconSizeBox->SetWidthOverride(128.0f);
+		MCP_ItemIconSizeBox->SetHeightOverride(128.0f);
+	}
+
+	if (MCP_ItemIconImage != nullptr)
+	{
+		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
 	}
 
 	if (MCP_ItemBackground != nullptr)
