@@ -2,6 +2,7 @@
 
 #include "MCPABValuePopupWidget.h"
 #include "MCPMessagePopupWidget.h"
+#include "MCPScrollGridPopupWidget.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
@@ -16,6 +17,7 @@ void UMCPSidebarWidget::NativeConstruct()
 
 	ResolveMessagePopupClass();
 	ResolveABValuePopupClass();
+	ResolveScrollGridPopupClass();
 
 	DisplayedA = Menu2InitialA;
 	DisplayedB = Menu2InitialB;
@@ -40,11 +42,18 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu3Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu3Clicked);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s"),
+	if (MCP_Menu4Button != nullptr)
+	{
+		MCP_Menu4Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleMenu4Clicked);
+		MCP_Menu4Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu4Clicked);
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s"),
 		MCP_SidebarPanel != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu1Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu2Button != nullptr ? TEXT("true") : TEXT("false"),
-		MCP_Menu3Button != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_Menu3Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPSidebarWidget::HandleMenu1Clicked()
@@ -92,7 +101,27 @@ void UMCPSidebarWidget::HandleMenu2Clicked()
 void UMCPSidebarWidget::HandleMenu3Clicked()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu3 clicked."));
-	ShowDebugMessage(TEXT("Menu3 clicked"), FColor::Cyan);
+
+	UMCPScrollGridPopupWidget* PopupWidget = GetOrCreateScrollGridPopup();
+	if (PopupWidget == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open scroll-grid popup: widget creation failed."));
+		return;
+	}
+
+	if (!PopupWidget->IsInViewport())
+	{
+		PopupWidget->AddToViewport(1000);
+	}
+
+	PopupWidget->OpenPopup();
+	SetPopupModalInput(true, PopupWidget);
+}
+
+void UMCPSidebarWidget::HandleMenu4Clicked()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu4 (TileView) clicked."));
+	ShowDebugMessage(TEXT("TileView clicked"), FColor::Silver);
 }
 
 void UMCPSidebarWidget::ResolveMessagePopupClass()
@@ -144,6 +173,33 @@ void UMCPSidebarWidget::ResolveABValuePopupClass()
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] AB popup widget class not found at %s"), PopupClassPath);
+	}
+}
+
+void UMCPSidebarWidget::ResolveScrollGridPopupClass()
+{
+	if (ScrollGridPopupWidgetClass != nullptr)
+	{
+		return;
+	}
+
+	static const TCHAR* PopupClassPath = TEXT("/Game/UI/Widget/WBP_MCPScrollGridPopup.WBP_MCPScrollGridPopup_C");
+	UClass* LoadedClass = LoadClass<UMCPScrollGridPopupWidget>(nullptr, PopupClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PopupClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPScrollGridPopupWidget>();
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		ScrollGridPopupWidgetClass = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Loaded scroll-grid popup widget class: %s"), *GetNameSafe(LoadedClass));
+	}
+	else
+	{
+		ScrollGridPopupWidgetClass = UMCPScrollGridPopupWidget::StaticClass();
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Scroll-grid popup widget class not found at %s. Falling back to native class."), PopupClassPath);
 	}
 }
 
@@ -206,6 +262,35 @@ UMCPABValuePopupWidget* UMCPSidebarWidget::GetOrCreateABValuePopup()
 	return ABValuePopupWidgetInstance;
 }
 
+UMCPScrollGridPopupWidget* UMCPSidebarWidget::GetOrCreateScrollGridPopup()
+{
+	if (ScrollGridPopupWidgetInstance != nullptr)
+	{
+		return ScrollGridPopupWidgetInstance;
+	}
+
+	ResolveScrollGridPopupClass();
+	if (ScrollGridPopupWidgetClass == nullptr)
+	{
+		return nullptr;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (OwningPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] GetOwningPlayer returned null while creating scroll-grid popup."));
+		return nullptr;
+	}
+
+	ScrollGridPopupWidgetInstance = CreateWidget<UMCPScrollGridPopupWidget>(OwningPlayer, ScrollGridPopupWidgetClass);
+	if (ScrollGridPopupWidgetInstance != nullptr)
+	{
+		ScrollGridPopupWidgetInstance->OnScrollGridPopupClosed.AddUObject(this, &UMCPSidebarWidget::HandleScrollGridPopupClosed);
+	}
+
+	return ScrollGridPopupWidgetInstance;
+}
+
 void UMCPSidebarWidget::SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget)
 {
 	APlayerController* OwningPlayer = GetOwningPlayer();
@@ -220,7 +305,11 @@ void UMCPSidebarWidget::SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidg
 		UUserWidget* WidgetToFocus = FocusWidget;
 		if (WidgetToFocus == nullptr)
 		{
-			if (ABValuePopupWidgetInstance != nullptr && ABValuePopupWidgetInstance->IsInViewport())
+			if (ScrollGridPopupWidgetInstance != nullptr && ScrollGridPopupWidgetInstance->IsInViewport())
+			{
+				WidgetToFocus = ScrollGridPopupWidgetInstance;
+			}
+			else if (ABValuePopupWidgetInstance != nullptr && ABValuePopupWidgetInstance->IsInViewport())
 			{
 				WidgetToFocus = ABValuePopupWidgetInstance;
 			}
@@ -269,6 +358,12 @@ void UMCPSidebarWidget::HandleABPopupCancelled()
 {
 	SetPopupModalInput(false, nullptr);
 	ShowDebugMessage(TEXT("AB popup canceled"), FColor::Orange);
+}
+
+void UMCPSidebarWidget::HandleScrollGridPopupClosed()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Scroll-grid popup closed."));
+	SetPopupModalInput(false, nullptr);
 }
 
 void UMCPSidebarWidget::RefreshABValueDisplay()

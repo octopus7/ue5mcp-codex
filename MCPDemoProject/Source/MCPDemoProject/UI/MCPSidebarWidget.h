@@ -9,6 +9,7 @@ class UButton;
 class UTextBlock;
 class UMCPABValuePopupWidget;
 class UMCPMessagePopupWidget;
+class UMCPScrollGridPopupWidget;
 
 UCLASS()
 class MCPDEMOPROJECT_API UMCPSidebarWidget : public UUserWidget
@@ -28,16 +29,22 @@ protected:
 	UFUNCTION()
 	void HandleMenu3Clicked();
 
+	UFUNCTION()
+	void HandleMenu4Clicked();
+
 private:
 	void ResolveMessagePopupClass();
 	UMCPMessagePopupWidget* GetOrCreateMessagePopup();
 	void ResolveABValuePopupClass();
 	UMCPABValuePopupWidget* GetOrCreateABValuePopup();
+	void ResolveScrollGridPopupClass();
+	UMCPScrollGridPopupWidget* GetOrCreateScrollGridPopup();
 	void SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget = nullptr);
 
 	void HandleMessagePopupClosed();
 	void HandleABPopupConfirmed(int32 FinalA, int32 FinalB, int32 FinalC);
 	void HandleABPopupCancelled();
+	void HandleScrollGridPopupClosed();
 	void RefreshABValueDisplay();
 
 	void ShowDebugMessage(const FString& Message, const FColor& Color) const;
@@ -56,6 +63,9 @@ private:
 	TObjectPtr<UButton> MCP_Menu3Button;
 
 	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UButton> MCP_Menu4Button;
+
+	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu1Label;
 
 	UPROPERTY(meta = (BindWidget))
@@ -63,6 +73,9 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu3Label;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_Menu4Label;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_ABStatusLabel;
@@ -96,4 +109,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMCPABValuePopupWidget> ABValuePopupWidgetInstance;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Popup")
+	TSubclassOf<UMCPScrollGridPopupWidget> ScrollGridPopupWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMCPScrollGridPopupWidget> ScrollGridPopupWidgetInstance;
 };
