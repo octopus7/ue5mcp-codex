@@ -5,7 +5,6 @@
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
-#include "Components/CanvasPanelSlot.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
@@ -149,14 +148,6 @@ void UMCPSidebarWidget::ApplyVisualStyle()
 		BorderBrush.TintColor = FSlateColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.55f));
 		BorderBrush.OutlineSettings = FSlateBrushOutlineSettings(16.0f, FSlateColor(FLinearColor::Transparent), 0.0f);
 		SidebarPanel->SetBrush(BorderBrush);
-
-		if (UCanvasPanelSlot* SidebarSlot = Cast<UCanvasPanelSlot>(SidebarPanel->Slot))
-		{
-			SidebarSlot->SetAnchors(FAnchors(0.0f, 0.0f));
-			SidebarSlot->SetAlignment(FVector2D(0.0f, 0.0f));
-			SidebarSlot->SetPosition(FVector2D(16.0f, 16.0f));
-			SidebarSlot->SetSize(FVector2D(240.0f, 210.0f));
-		}
 	}
 
 	if (UVerticalBox* ButtonColumn = FindNamedWidget<UVerticalBox>(WidgetTree, TEXT("MCP_MenuButtonColumn"), TEXT("MenuButtonColumn")))

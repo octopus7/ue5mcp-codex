@@ -60,6 +60,22 @@
       "widget_name": "Menu3Label"
     },
     {
+      "op": "update_widget",
+      "key": "SidebarPanel",
+      "properties": {
+        "slot_anchors_min_x": 1.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 0.0,
+        "slot_alignment_x": 1.0,
+        "slot_alignment_y": 0.0,
+        "slot_position_x": -16.0,
+        "slot_position_y": 16.0,
+        "slot_size_x": 240.0,
+        "slot_size_y": 210.0
+      }
+    },
+    {
       "op": "bind_widget_ref",
       "key": "SidebarPanel"
     },

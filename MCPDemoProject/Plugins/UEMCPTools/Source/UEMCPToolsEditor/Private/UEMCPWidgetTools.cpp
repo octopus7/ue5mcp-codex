@@ -4,6 +4,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
 #include "Components/PanelWidget.h"
 #include "Components/Widget.h"
 #include "IAssetTools.h"
@@ -644,6 +645,97 @@ bool ApplyUpdateWidgetOp(
 		{
 			Widget->Modify();
 			Widget->SetRenderOpacity(static_cast<float>(Operation.NumberProps[TEXT("render_opacity")]));
+		}
+	}
+
+	auto TryGetNumberProp = [&Operation](const TCHAR* PropertyName, float& OutValue) -> bool
+	{
+		if (const double* FoundValue = Operation.NumberProps.Find(PropertyName))
+		{
+			OutValue = static_cast<float>(*FoundValue);
+			return true;
+		}
+		return false;
+	};
+
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Widget->Slot))
+	{
+		FAnchors Anchors = CanvasSlot->GetAnchors();
+		FVector2D Alignment = CanvasSlot->GetAlignment();
+		FVector2D Position = CanvasSlot->GetPosition();
+		FVector2D Size = CanvasSlot->GetSize();
+		int32 ZOrder = CanvasSlot->GetZOrder();
+
+		bool bCanvasSlotChanged = false;
+		float NumberValue = 0.0f;
+		if (TryGetNumberProp(TEXT("slot_anchors_min_x"), NumberValue))
+		{
+			Anchors.Minimum.X = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_anchors_min_y"), NumberValue))
+		{
+			Anchors.Minimum.Y = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_anchors_max_x"), NumberValue))
+		{
+			Anchors.Maximum.X = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_anchors_max_y"), NumberValue))
+		{
+			Anchors.Maximum.Y = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_alignment_x"), NumberValue))
+		{
+			Alignment.X = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_alignment_y"), NumberValue))
+		{
+			Alignment.Y = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_position_x"), NumberValue))
+		{
+			Position.X = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_position_y"), NumberValue))
+		{
+			Position.Y = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_size_x"), NumberValue))
+		{
+			Size.X = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_size_y"), NumberValue))
+		{
+			Size.Y = NumberValue;
+			bCanvasSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_z_order"), NumberValue))
+		{
+			ZOrder = FMath::RoundToInt(NumberValue);
+			bCanvasSlotChanged = true;
+		}
+
+		if (bCanvasSlotChanged)
+		{
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				CanvasSlot->Modify();
+				CanvasSlot->SetAnchors(Anchors);
+				CanvasSlot->SetAlignment(Alignment);
+				CanvasSlot->SetPosition(Position);
+				CanvasSlot->SetSize(Size);
+				CanvasSlot->SetZOrder(ZOrder);
+			}
 		}
 	}
 
