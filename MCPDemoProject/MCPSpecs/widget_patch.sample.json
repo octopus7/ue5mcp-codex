@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Generated/WBP_Inventory",
+  "parent_class_path": "/Script/UMG.UserWidget",
+  "operations": [
+    {
+      "op": "add_widget",
+      "key": "root_panel",
+      "widget_class": "/Script/UMG.CanvasPanel",
+      "widget_name": "RootPanel"
+    },
+    {
+      "op": "add_widget",
+      "key": "btn_confirm",
+      "parent_key": "root_panel",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "BtnConfirm"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "btn_confirm",
+      "variable_name": "BtnConfirm"
+    },
+    {
+      "op": "bind_event",
+      "key": "btn_confirm",
+      "event_name": "OnClicked",
+      "function_name": "HandleConfirmClicked"
+    }
+  ]
+}
