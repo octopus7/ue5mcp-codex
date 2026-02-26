@@ -28,7 +28,6 @@ protected:
 
 private:
 	void ResolveWidgets();
-	void ApplyVisualStyle();
 	void ApplyDefaultTexts();
 
 private:

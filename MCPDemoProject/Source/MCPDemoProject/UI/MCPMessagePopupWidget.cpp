@@ -3,9 +3,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
-#include "Components/ButtonSlot.h"
 #include "Components/TextBlock.h"
-#include "Styling/SlateBrush.h"
 
 namespace
 {
@@ -32,34 +30,6 @@ TWidgetType* FindNamedWidget(UWidgetTree* WidgetTree, const TCHAR* ManagedName, 
 
 	return nullptr;
 }
-
-void ApplyButtonVisual(UButton* Button)
-{
-	if (Button == nullptr)
-	{
-		return;
-	}
-
-	FButtonStyle ButtonStyle = Button->GetStyle();
-	ButtonStyle.Normal.DrawAs = ESlateBrushDrawType::RoundedBox;
-	ButtonStyle.Normal.TintColor = FSlateColor(FLinearColor(0.18f, 0.18f, 0.18f, 0.95f));
-	ButtonStyle.Normal.OutlineSettings = FSlateBrushOutlineSettings(8.0f, FSlateColor(FLinearColor::Transparent), 0.0f);
-
-	ButtonStyle.Hovered = ButtonStyle.Normal;
-	ButtonStyle.Hovered.TintColor = FSlateColor(FLinearColor(0.24f, 0.24f, 0.24f, 1.0f));
-
-	ButtonStyle.Pressed = ButtonStyle.Normal;
-	ButtonStyle.Pressed.TintColor = FSlateColor(FLinearColor(0.1f, 0.1f, 0.1f, 1.0f));
-
-	Button->SetStyle(ButtonStyle);
-
-	if (UButtonSlot* ButtonSlot = Cast<UButtonSlot>(Button->Slot))
-	{
-		ButtonSlot->SetHorizontalAlignment(HAlign_Center);
-		ButtonSlot->SetVerticalAlignment(VAlign_Center);
-		ButtonSlot->SetPadding(FMargin(10.0f, 8.0f));
-	}
-}
 }
 
 void UMCPMessagePopupWidget::NativeConstruct()
@@ -67,7 +37,6 @@ void UMCPMessagePopupWidget::NativeConstruct()
 	Super::NativeConstruct();
 
 	ResolveWidgets();
-	ApplyVisualStyle();
 	ApplyDefaultTexts();
 
 	if (OkButton != nullptr)
@@ -123,29 +92,6 @@ void UMCPMessagePopupWidget::ResolveWidgets()
 	OkLabel = FindNamedWidget<UTextBlock>(WidgetTree, TEXT("MCP_OkLabel"), TEXT("OkLabel"));
 }
 
-void UMCPMessagePopupWidget::ApplyVisualStyle()
-{
-	if (DimBlocker != nullptr)
-	{
-		FSlateBrush DimBrush;
-		DimBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
-		DimBrush.TintColor = FSlateColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.55f));
-		DimBrush.OutlineSettings = FSlateBrushOutlineSettings(0.0f, FSlateColor(FLinearColor::Transparent), 0.0f);
-		DimBlocker->SetBrush(DimBrush);
-	}
-
-	if (PopupPanel != nullptr)
-	{
-		FSlateBrush PanelBrush;
-		PanelBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
-		PanelBrush.TintColor = FSlateColor(FLinearColor(0.06f, 0.06f, 0.06f, 0.95f));
-		PanelBrush.OutlineSettings = FSlateBrushOutlineSettings(14.0f, FSlateColor(FLinearColor::Transparent), 0.0f);
-		PopupPanel->SetBrush(PanelBrush);
-	}
-
-	ApplyButtonVisual(OkButton);
-}
-
 void UMCPMessagePopupWidget::ApplyDefaultTexts()
 {
 	if (TitleText != nullptr && TitleText->GetText().IsEmpty())
@@ -164,17 +110,5 @@ void UMCPMessagePopupWidget::ApplyDefaultTexts()
 		{
 			OkLabel->SetText(FText::FromString(TEXT("OK")));
 		}
-		OkLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-		OkLabel->SetJustification(ETextJustify::Center);
-	}
-
-	if (TitleText != nullptr)
-	{
-		TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-	}
-
-	if (MessageText != nullptr)
-	{
-		MessageText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 	}
 }

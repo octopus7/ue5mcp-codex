@@ -14,10 +14,6 @@
     },
     {
       "op": "remove_widget",
-      "key": "BodySpacer"
-    },
-    {
-      "op": "remove_widget",
       "key": "MessageText"
     },
     {
@@ -30,7 +26,7 @@
     },
     {
       "op": "remove_widget",
-      "key": "ContentCanvas"
+      "key": "BodySpacer"
     },
     {
       "op": "remove_widget",
@@ -38,25 +34,37 @@
     },
     {
       "op": "remove_widget",
+      "key": "PopupOutline"
+    },
+    {
+      "op": "remove_widget",
       "key": "DimBlocker"
     },
+
     {
       "op": "add_widget",
       "key": "DimBlocker",
       "widget_class": "/Script/UMG.Border",
-      "widget_name": "DimBlocker"
-    },
-    {
-      "op": "add_widget",
-      "key": "PopupPanel",
-      "widget_class": "/Script/UMG.Border",
-      "widget_name": "PopupPanel"
+      "widget_name": "DimBlocker",
+      "properties": {
+        "insert_index": 0
+      }
     },
     {
       "op": "add_widget",
       "key": "PopupOutline",
       "widget_class": "/Script/UMG.Border",
-      "widget_name": "PopupOutline"
+      "widget_name": "PopupOutline",
+      "properties": {
+        "insert_index": 1
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupPanel",
+      "parent_key": "PopupOutline",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "PopupPanel"
     },
     {
       "op": "add_widget",
@@ -93,10 +101,22 @@
       "widget_class": "/Script/UMG.TextBlock",
       "widget_name": "OkLabel"
     },
+
     {
       "op": "update_widget",
       "key": "DimBlocker",
       "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.0,
+        "brush_tint_g": 0.0,
+        "brush_tint_b": 0.0,
+        "brush_tint_a": 0.55,
+        "brush_corner_radius": 0.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
         "slot_anchors_min_x": 0.0,
         "slot_anchors_min_y": 0.0,
         "slot_anchors_max_x": 1.0,
@@ -112,29 +132,19 @@
     },
     {
       "op": "update_widget",
-      "key": "PopupPanel",
-      "properties": {
-        "slot_anchors_min_x": 0.5,
-        "slot_anchors_min_y": 0.5,
-        "slot_anchors_max_x": 0.5,
-        "slot_anchors_max_y": 0.5,
-        "slot_alignment_x": 0.5,
-        "slot_alignment_y": 0.5,
-        "slot_position_x": 0.0,
-        "slot_position_y": 0.0,
-        "slot_size_x": 760.0,
-        "slot_size_y": 360.0,
-        "slot_z_order": 10,
-        "padding_left": 52.0,
-        "padding_top": 40.0,
-        "padding_right": 52.0,
-        "padding_bottom": 52.0
-      }
-    },
-    {
-      "op": "update_widget",
       "key": "PopupOutline",
       "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 1.0,
+        "brush_tint_g": 1.0,
+        "brush_tint_b": 1.0,
+        "brush_tint_a": 1.0,
+        "brush_corner_radius": 14.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
         "slot_anchors_min_x": 0.5,
         "slot_anchors_min_y": 0.5,
         "slot_anchors_max_x": 0.5,
@@ -143,27 +153,35 @@
         "slot_alignment_y": 0.5,
         "slot_position_x": 0.0,
         "slot_position_y": 0.0,
-        "slot_size_x": 762.0,
-        "slot_size_y": 362.0,
-        "slot_z_order": 9,
+        "slot_size_x": 782.0,
+        "slot_size_y": 422.0,
+        "slot_z_order": 10,
         "padding": 0.0,
         "render_opacity": 1.0
       }
     },
     {
-      "op": "reorder_widget",
-      "key": "PopupOutline",
-      "parent_key": "RootCanvas",
-      "properties": {
-        "insert_index": 1
-      }
-    },
-    {
-      "op": "reorder_widget",
+      "op": "update_widget",
       "key": "PopupPanel",
-      "parent_key": "RootCanvas",
       "properties": {
-        "insert_index": 2
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.06,
+        "brush_tint_g": 0.06,
+        "brush_tint_b": 0.06,
+        "brush_tint_a": 0.95,
+        "brush_corner_radius": 14.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0,
+        "slot_halign": "fill",
+        "slot_valign": "fill",
+        "slot_padding": 2.0,
+        "padding_left": 56.0,
+        "padding_top": 44.0,
+        "padding_right": 56.0,
+        "padding_bottom": 56.0
       }
     },
     {
@@ -178,7 +196,15 @@
       "op": "update_widget",
       "key": "TitleText",
       "properties": {
-        "text": "Message Box"
+        "text": "Message Box",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "left",
+        "wrap_text_at": 640.0,
+        "slot_halign": "fill",
+        "slot_padding_bottom": 24.0
       }
     },
     {
@@ -186,48 +212,64 @@
       "key": "MessageText",
       "properties": {
         "text": "This is a simple message popup.",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center",
         "auto_wrap_text": true,
+        "wrap_text_at": 640.0,
         "slot_halign": "center",
         "slot_valign": "center",
         "slot_size_rule": "fill",
-        "slot_size_value": 1.0
-      }
-    },
-    {
-      "op": "update_widget",
-      "key": "TitleText",
-      "properties": {
-        "wrap_text_at": 620.0,
-        "slot_padding_bottom": 20.0
-      }
-    },
-    {
-      "op": "update_widget",
-      "key": "MessageText",
-      "properties": {
-        "wrap_text_at": 620.0,
+        "slot_size_value": 1.0,
         "slot_padding_top": 12.0,
-        "slot_padding_bottom": 16.0
+        "slot_padding_bottom": 28.0
       }
     },
     {
       "op": "update_widget",
       "key": "OkButton",
       "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_outline_r": 0.0,
+        "button_outline_g": 0.0,
+        "button_outline_b": 0.0,
+        "button_outline_a": 0.0,
+        "button_outline_width": 0.0,
+        "button_normal_r": 0.18,
+        "button_normal_g": 0.18,
+        "button_normal_b": 0.18,
+        "button_normal_a": 0.95,
+        "button_hovered_r": 0.24,
+        "button_hovered_g": 0.24,
+        "button_hovered_b": 0.24,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.10,
+        "button_pressed_g": 0.10,
+        "button_pressed_b": 0.10,
+        "button_pressed_a": 1.0,
         "slot_halign": "fill",
-        "slot_padding_left": 197.0,
-        "slot_padding_right": 197.0,
-        "slot_padding_top": 12.0,
-        "slot_padding_bottom": 32.0
+        "slot_padding_left": 200.0,
+        "slot_padding_right": 200.0,
+        "slot_padding_top": 8.0,
+        "slot_padding_bottom": 40.0
       }
     },
     {
       "op": "update_widget",
       "key": "OkLabel",
       "properties": {
-        "text": "OK"
+        "text": "OK",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0,
+        "text_justification": "center"
       }
     },
+
     {
       "op": "bind_widget_ref",
       "key": "DimBlocker"
@@ -235,14 +277,6 @@
     {
       "op": "bind_widget_ref",
       "key": "PopupPanel"
-    },
-    {
-      "op": "bind_widget_ref",
-      "key": "PopupOutline"
-    },
-    {
-      "op": "bind_widget_ref",
-      "key": "ContentBox"
     },
     {
       "op": "bind_widget_ref",

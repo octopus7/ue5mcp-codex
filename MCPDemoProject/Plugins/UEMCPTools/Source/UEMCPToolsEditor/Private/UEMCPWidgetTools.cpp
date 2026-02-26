@@ -6,6 +6,7 @@
 #include "Blueprint/UserWidget.h"
 #include "Components/Border.h"
 #include "Components/BorderSlot.h"
+#include "Components/Button.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/ContentWidget.h"
@@ -21,6 +22,7 @@
 #include "UObject/UnrealType.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
+#include "Styling/SlateBrush.h"
 #include "UEMCPLog.h"
 #include "UEMCPWidgetPatchTypes.h"
 #include "WidgetBlueprint.h"
@@ -167,6 +169,86 @@ bool ParseSlateSizeRule(const FString& InValue, ESlateSizeRule::Type& OutValue)
 		return true;
 	}
 	return false;
+}
+
+bool ParseTextJustification(const FString& InValue, ETextJustify::Type& OutValue)
+{
+	const FString Lower = InValue.ToLower();
+	if (Lower == TEXT("left"))
+	{
+		OutValue = ETextJustify::Left;
+		return true;
+	}
+	if (Lower == TEXT("center") || Lower == TEXT("centre"))
+	{
+		OutValue = ETextJustify::Center;
+		return true;
+	}
+	if (Lower == TEXT("right"))
+	{
+		OutValue = ETextJustify::Right;
+		return true;
+	}
+	return false;
+}
+
+bool ParseBrushDrawType(const FString& InValue, ESlateBrushDrawType::Type& OutValue)
+{
+	const FString Lower = InValue.ToLower();
+	if (Lower == TEXT("rounded_box") || Lower == TEXT("roundedbox"))
+	{
+		OutValue = ESlateBrushDrawType::RoundedBox;
+		return true;
+	}
+	if (Lower == TEXT("box"))
+	{
+		OutValue = ESlateBrushDrawType::Box;
+		return true;
+	}
+	if (Lower == TEXT("border"))
+	{
+		OutValue = ESlateBrushDrawType::Border;
+		return true;
+	}
+	if (Lower == TEXT("image"))
+	{
+		OutValue = ESlateBrushDrawType::Image;
+		return true;
+	}
+	if (Lower == TEXT("none") || Lower == TEXT("nodrawtype"))
+	{
+		OutValue = ESlateBrushDrawType::NoDrawType;
+		return true;
+	}
+	return false;
+}
+
+bool HasColorProps(const TMap<FString, double>& NumberProps, const TCHAR* Prefix)
+{
+	return NumberProps.Contains(FString::Printf(TEXT("%s_r"), Prefix)) ||
+		NumberProps.Contains(FString::Printf(TEXT("%s_g"), Prefix)) ||
+		NumberProps.Contains(FString::Printf(TEXT("%s_b"), Prefix)) ||
+		NumberProps.Contains(FString::Printf(TEXT("%s_a"), Prefix));
+}
+
+bool TryApplyColorProps(const TMap<FString, double>& NumberProps, const TCHAR* Prefix, FLinearColor& InOutColor)
+{
+	bool bChanged = false;
+	const auto TrySetComponent = [&NumberProps, Prefix, &bChanged](const TCHAR* Suffix, float& OutComponent)
+	{
+		const FString Key = FString::Printf(TEXT("%s_%s"), Prefix, Suffix);
+		if (const double* FoundValue = NumberProps.Find(Key))
+		{
+			OutComponent = static_cast<float>(*FoundValue);
+			bChanged = true;
+		}
+	};
+
+	TrySetComponent(TEXT("r"), InOutColor.R);
+	TrySetComponent(TEXT("g"), InOutColor.G);
+	TrySetComponent(TEXT("b"), InOutColor.B);
+	TrySetComponent(TEXT("a"), InOutColor.A);
+	return bChanged;
 }
 
 FString GetManagedKey(const UWidget* Widget);
@@ -1131,6 +1213,56 @@ bool ApplyUpdateWidgetOp(
 		}
 	}
 
+	const bool bHasTextColorProps = HasColorProps(Operation.NumberProps, TEXT("text_color"));
+	const bool bHasTextJustification = Operation.StringProps.Contains(TEXT("text_justification"));
+	if (bHasTextColorProps || bHasTextJustification)
+	{
+		if (UTextBlock* TextBlock = Cast<UTextBlock>(Widget))
+		{
+			bool bTextStyleChanged = false;
+			if (bHasTextColorProps)
+			{
+				FLinearColor Color = TextBlock->GetColorAndOpacity().GetSpecifiedColor();
+				if (TryApplyColorProps(Operation.NumberProps, TEXT("text_color"), Color))
+				{
+					bTextStyleChanged = true;
+					if (!bDryRun)
+					{
+						TextBlock->Modify();
+						TextBlock->SetColorAndOpacity(FSlateColor(Color));
+					}
+				}
+			}
+
+			if (bHasTextJustification)
+			{
+				ETextJustify::Type Justification = ETextJustify::Left;
+				if (ParseTextJustification(Operation.StringProps[TEXT("text_justification")], Justification))
+				{
+					bTextStyleChanged = true;
+					if (!bDryRun)
+					{
+						TextBlock->Modify();
+						TextBlock->SetJustification(Justification);
+					}
+				}
+				else
+				{
+					Response.AddWarning(TEXT("unknown_text_justification"), TEXT("Unrecognized text_justification value."), Operation.StringProps[TEXT("text_justification")]);
+				}
+			}
+
+			if (bTextStyleChanged)
+			{
+				bAnyChange = true;
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_text_style_target"), TEXT("text_color/text_justification are only supported for UTextBlock widgets."), Key);
+		}
+	}
+
 	if (Operation.NumberProps.Contains(TEXT("render_opacity")))
 	{
 		bAnyChange = true;
@@ -1155,6 +1287,7 @@ bool ApplyUpdateWidgetOp(
 	{
 		FMargin BorderPadding = BorderWidget->GetPadding();
 		bool bBorderPaddingChanged = false;
+		bool bBorderBrushChanged = false;
 		float NumberValue = 0.0f;
 
 		if (TryGetNumberProp(TEXT("padding"), NumberValue))
@@ -1190,6 +1323,161 @@ bool ApplyUpdateWidgetOp(
 			{
 				BorderWidget->Modify();
 				BorderWidget->SetPadding(BorderPadding);
+			}
+		}
+
+		FSlateBrush BorderBrush = BorderWidget->Background;
+		if (const FString* DrawAsValue = Operation.StringProps.Find(TEXT("border_draw_as")))
+		{
+			ESlateBrushDrawType::Type DrawType = BorderBrush.DrawAs;
+			if (ParseBrushDrawType(*DrawAsValue, DrawType))
+			{
+				BorderBrush.DrawAs = DrawType;
+				bBorderBrushChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_border_draw_as"), TEXT("Unrecognized border_draw_as value."), *DrawAsValue);
+			}
+		}
+
+		FLinearColor BrushTint = BorderBrush.TintColor.GetSpecifiedColor();
+		if (TryApplyColorProps(Operation.NumberProps, TEXT("brush_tint"), BrushTint))
+		{
+			BorderBrush.TintColor = FSlateColor(BrushTint);
+			bBorderBrushChanged = true;
+		}
+
+		FSlateBrushOutlineSettings OutlineSettings = BorderBrush.OutlineSettings;
+		FLinearColor OutlineColor = OutlineSettings.Color.GetSpecifiedColor();
+		if (TryApplyColorProps(Operation.NumberProps, TEXT("brush_outline"), OutlineColor))
+		{
+			OutlineSettings.Color = FSlateColor(OutlineColor);
+			bBorderBrushChanged = true;
+		}
+
+		if (TryGetNumberProp(TEXT("brush_corner_radius"), NumberValue))
+		{
+			OutlineSettings.CornerRadii = FVector4(NumberValue, NumberValue, NumberValue, NumberValue);
+			OutlineSettings.RoundingType = ESlateBrushRoundingType::FixedRadius;
+			bBorderBrushChanged = true;
+		}
+
+		if (TryGetNumberProp(TEXT("brush_outline_width"), NumberValue))
+		{
+			OutlineSettings.Width = NumberValue;
+			bBorderBrushChanged = true;
+		}
+
+		if (bBorderBrushChanged)
+		{
+			BorderBrush.OutlineSettings = OutlineSettings;
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				BorderWidget->Modify();
+				BorderWidget->SetBrush(BorderBrush);
+			}
+		}
+	}
+
+	if (UButton* ButtonWidget = Cast<UButton>(Widget))
+	{
+		const bool bHasButtonColorProps =
+			HasColorProps(Operation.NumberProps, TEXT("button_normal")) ||
+			HasColorProps(Operation.NumberProps, TEXT("button_hovered")) ||
+			HasColorProps(Operation.NumberProps, TEXT("button_pressed")) ||
+			HasColorProps(Operation.NumberProps, TEXT("button_outline"));
+		const bool bHasButtonShapeProps =
+			Operation.StringProps.Contains(TEXT("button_draw_as")) ||
+			Operation.NumberProps.Contains(TEXT("button_corner_radius")) ||
+			Operation.NumberProps.Contains(TEXT("button_outline_width"));
+
+		if (bHasButtonColorProps || bHasButtonShapeProps)
+		{
+			FButtonStyle ButtonStyle = ButtonWidget->GetStyle();
+			FSlateBrush NormalBrush = ButtonStyle.Normal;
+			FSlateBrush HoveredBrush = ButtonStyle.Hovered;
+			FSlateBrush PressedBrush = ButtonStyle.Pressed;
+			bool bButtonStyleChanged = false;
+			float NumberValue = 0.0f;
+			float CornerRadius = NormalBrush.OutlineSettings.CornerRadii.X;
+			float OutlineWidth = NormalBrush.OutlineSettings.Width;
+
+			if (TryGetNumberProp(TEXT("button_corner_radius"), NumberValue))
+			{
+				CornerRadius = NumberValue;
+				bButtonStyleChanged = true;
+			}
+			if (TryGetNumberProp(TEXT("button_outline_width"), NumberValue))
+			{
+				OutlineWidth = NumberValue;
+				bButtonStyleChanged = true;
+			}
+
+			ESlateBrushDrawType::Type DrawType = NormalBrush.DrawAs;
+			if (const FString* DrawAsValue = Operation.StringProps.Find(TEXT("button_draw_as")))
+			{
+				if (!ParseBrushDrawType(*DrawAsValue, DrawType))
+				{
+					Response.AddWarning(TEXT("unknown_button_draw_as"), TEXT("Unrecognized button_draw_as value."), *DrawAsValue);
+				}
+				else
+				{
+					bButtonStyleChanged = true;
+				}
+			}
+
+			FLinearColor OutlineColor = NormalBrush.OutlineSettings.Color.GetSpecifiedColor();
+			if (TryApplyColorProps(Operation.NumberProps, TEXT("button_outline"), OutlineColor))
+			{
+				bButtonStyleChanged = true;
+			}
+
+			FLinearColor NormalTint = NormalBrush.TintColor.GetSpecifiedColor();
+			if (TryApplyColorProps(Operation.NumberProps, TEXT("button_normal"), NormalTint))
+			{
+				NormalBrush.TintColor = FSlateColor(NormalTint);
+				bButtonStyleChanged = true;
+			}
+
+			FLinearColor HoveredTint = HoveredBrush.TintColor.GetSpecifiedColor();
+			if (TryApplyColorProps(Operation.NumberProps, TEXT("button_hovered"), HoveredTint))
+			{
+				HoveredBrush.TintColor = FSlateColor(HoveredTint);
+				bButtonStyleChanged = true;
+			}
+
+			FLinearColor PressedTint = PressedBrush.TintColor.GetSpecifiedColor();
+			if (TryApplyColorProps(Operation.NumberProps, TEXT("button_pressed"), PressedTint))
+			{
+				PressedBrush.TintColor = FSlateColor(PressedTint);
+				bButtonStyleChanged = true;
+			}
+
+			const FSlateBrushOutlineSettings OutlineSettings(
+				FVector4(CornerRadius, CornerRadius, CornerRadius, CornerRadius),
+				FSlateColor(OutlineColor),
+				OutlineWidth);
+
+			NormalBrush.DrawAs = DrawType;
+			HoveredBrush.DrawAs = DrawType;
+			PressedBrush.DrawAs = DrawType;
+			NormalBrush.OutlineSettings = OutlineSettings;
+			HoveredBrush.OutlineSettings = OutlineSettings;
+			PressedBrush.OutlineSettings = OutlineSettings;
+
+			if (bButtonStyleChanged)
+			{
+				ButtonStyle.Normal = NormalBrush;
+				ButtonStyle.Hovered = HoveredBrush;
+				ButtonStyle.Pressed = PressedBrush;
+				bAnyChange = true;
+				if (!bDryRun)
+				{
+					ButtonWidget->Modify();
+					ButtonWidget->SetStyle(ButtonStyle);
+				}
 			}
 		}
 	}
