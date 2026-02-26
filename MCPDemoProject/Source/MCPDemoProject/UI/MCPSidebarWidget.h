@@ -10,6 +10,7 @@ class UTextBlock;
 class UMCPABValuePopupWidget;
 class UMCPMessagePopupWidget;
 class UMCPScrollGridPopupWidget;
+class UMCPScrollTilePopupWidget;
 
 UCLASS()
 class MCPDEMOPROJECT_API UMCPSidebarWidget : public UUserWidget
@@ -39,12 +40,15 @@ private:
 	UMCPABValuePopupWidget* GetOrCreateABValuePopup();
 	void ResolveScrollGridPopupClass();
 	UMCPScrollGridPopupWidget* GetOrCreateScrollGridPopup();
+	void ResolveScrollTilePopupClass();
+	UMCPScrollTilePopupWidget* GetOrCreateScrollTilePopup();
 	void SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget = nullptr);
 
 	void HandleMessagePopupClosed();
 	void HandleABPopupConfirmed(int32 FinalA, int32 FinalB, int32 FinalC);
 	void HandleABPopupCancelled();
 	void HandleScrollGridPopupClosed();
+	void HandleScrollTilePopupClosed();
 	void RefreshABValueDisplay();
 
 	void ShowDebugMessage(const FString& Message, const FColor& Color) const;
@@ -115,4 +119,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMCPScrollGridPopupWidget> ScrollGridPopupWidgetInstance;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Popup")
+	TSubclassOf<UMCPScrollTilePopupWidget> ScrollTilePopupWidgetClass;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMCPScrollTilePopupWidget> ScrollTilePopupWidgetInstance;
 };

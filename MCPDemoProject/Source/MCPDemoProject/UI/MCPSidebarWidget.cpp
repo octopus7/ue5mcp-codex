@@ -3,6 +3,7 @@
 #include "MCPABValuePopupWidget.h"
 #include "MCPMessagePopupWidget.h"
 #include "MCPScrollGridPopupWidget.h"
+#include "MCPScrollTilePopupWidget.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
@@ -18,6 +19,7 @@ void UMCPSidebarWidget::NativeConstruct()
 	ResolveMessagePopupClass();
 	ResolveABValuePopupClass();
 	ResolveScrollGridPopupClass();
+	ResolveScrollTilePopupClass();
 
 	DisplayedA = Menu2InitialA;
 	DisplayedB = Menu2InitialB;
@@ -121,7 +123,21 @@ void UMCPSidebarWidget::HandleMenu3Clicked()
 void UMCPSidebarWidget::HandleMenu4Clicked()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu4 (TileView) clicked."));
-	ShowDebugMessage(TEXT("TileView clicked"), FColor::Silver);
+
+	UMCPScrollTilePopupWidget* PopupWidget = GetOrCreateScrollTilePopup();
+	if (PopupWidget == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open scroll-tile popup: widget creation failed."));
+		return;
+	}
+
+	if (!PopupWidget->IsInViewport())
+	{
+		PopupWidget->AddToViewport(1000);
+	}
+
+	PopupWidget->OpenPopup();
+	SetPopupModalInput(true, PopupWidget);
 }
 
 void UMCPSidebarWidget::ResolveMessagePopupClass()
@@ -200,6 +216,33 @@ void UMCPSidebarWidget::ResolveScrollGridPopupClass()
 	{
 		ScrollGridPopupWidgetClass = UMCPScrollGridPopupWidget::StaticClass();
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Scroll-grid popup widget class not found at %s. Falling back to native class."), PopupClassPath);
+	}
+}
+
+void UMCPSidebarWidget::ResolveScrollTilePopupClass()
+{
+	if (ScrollTilePopupWidgetClass != nullptr)
+	{
+		return;
+	}
+
+	static const TCHAR* PopupClassPath = TEXT("/Game/UI/Widget/WBP_MCPScrollTilePopup.WBP_MCPScrollTilePopup_C");
+	UClass* LoadedClass = LoadClass<UMCPScrollTilePopupWidget>(nullptr, PopupClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PopupClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPScrollTilePopupWidget>();
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		ScrollTilePopupWidgetClass = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Loaded scroll-tile popup widget class: %s"), *GetNameSafe(LoadedClass));
+	}
+	else
+	{
+		ScrollTilePopupWidgetClass = UMCPScrollTilePopupWidget::StaticClass();
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Scroll-tile popup widget class not found at %s. Falling back to native class."), PopupClassPath);
 	}
 }
 
@@ -291,6 +334,35 @@ UMCPScrollGridPopupWidget* UMCPSidebarWidget::GetOrCreateScrollGridPopup()
 	return ScrollGridPopupWidgetInstance;
 }
 
+UMCPScrollTilePopupWidget* UMCPSidebarWidget::GetOrCreateScrollTilePopup()
+{
+	if (ScrollTilePopupWidgetInstance != nullptr)
+	{
+		return ScrollTilePopupWidgetInstance;
+	}
+
+	ResolveScrollTilePopupClass();
+	if (ScrollTilePopupWidgetClass == nullptr)
+	{
+		return nullptr;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (OwningPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] GetOwningPlayer returned null while creating scroll-tile popup."));
+		return nullptr;
+	}
+
+	ScrollTilePopupWidgetInstance = CreateWidget<UMCPScrollTilePopupWidget>(OwningPlayer, ScrollTilePopupWidgetClass);
+	if (ScrollTilePopupWidgetInstance != nullptr)
+	{
+		ScrollTilePopupWidgetInstance->OnScrollTilePopupClosed.AddUObject(this, &UMCPSidebarWidget::HandleScrollTilePopupClosed);
+	}
+
+	return ScrollTilePopupWidgetInstance;
+}
+
 void UMCPSidebarWidget::SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget)
 {
 	APlayerController* OwningPlayer = GetOwningPlayer();
@@ -305,7 +377,11 @@ void UMCPSidebarWidget::SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidg
 		UUserWidget* WidgetToFocus = FocusWidget;
 		if (WidgetToFocus == nullptr)
 		{
-			if (ScrollGridPopupWidgetInstance != nullptr && ScrollGridPopupWidgetInstance->IsInViewport())
+			if (ScrollTilePopupWidgetInstance != nullptr && ScrollTilePopupWidgetInstance->IsInViewport())
+			{
+				WidgetToFocus = ScrollTilePopupWidgetInstance;
+			}
+			else if (ScrollGridPopupWidgetInstance != nullptr && ScrollGridPopupWidgetInstance->IsInViewport())
 			{
 				WidgetToFocus = ScrollGridPopupWidgetInstance;
 			}
@@ -363,6 +439,12 @@ void UMCPSidebarWidget::HandleABPopupCancelled()
 void UMCPSidebarWidget::HandleScrollGridPopupClosed()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Scroll-grid popup closed."));
+	SetPopupModalInput(false, nullptr);
+}
+
+void UMCPSidebarWidget::HandleScrollTilePopupClosed()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Scroll-tile popup closed."));
 	SetPopupModalInput(false, nullptr);
 }
 

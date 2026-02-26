@@ -3,6 +3,8 @@
 - `widget_patch.sample.json`: example payload for `widget.create_or_patch` and `widget.apply_ops` (copy to a transient runtime file before invoke)
 - `widget_patch.scroll_grid_popup.sample.json`: sample payload for `WBP_MCPScrollGridPopup`
 - `widget_patch.scroll_grid_item.sample.json`: sample payload for `WBP_MCPScrollGridItem`
+- `widget_patch.scroll_tile_popup.sample.json`: sample payload for `WBP_MCPScrollTilePopup`
+- `widget_patch.scroll_tile_item.sample.json`: sample payload for `WBP_MCPScrollTileItem`
 - `widget_repair.sample.json`: example payload for `widget.repair_tree`
 
 Widget patch operations support:

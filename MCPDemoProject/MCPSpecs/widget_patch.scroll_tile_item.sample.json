@@ -1,0 +1,97 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Widget/WBP_MCPScrollTileItem",
+  "parent_class_path": "/Script/MCPDemoProject.MCPScrollTileItemWidget",
+  "operations": [
+    {
+      "op": "add_widget",
+      "key": "ItemRoot",
+      "widget_class": "/Script/UMG.CanvasPanel"
+    },
+    {
+      "op": "update_widget",
+      "key": "ItemRoot",
+      "properties": {
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 1.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 0.0,
+        "slot_size_y": 0.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "ItemSizeBox",
+      "parent_key": "ItemRoot",
+      "widget_class": "/Script/UMG.SizeBox"
+    },
+    {
+      "op": "update_widget",
+      "key": "ItemSizeBox",
+      "properties": {
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 0.0,
+        "slot_anchors_max_y": 0.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 160.0,
+        "slot_size_y": 72.0,
+        "slot_alignment_x": 0.0,
+        "slot_alignment_y": 0.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "ItemBackground",
+      "parent_key": "ItemSizeBox",
+      "widget_class": "/Script/UMG.Border"
+    },
+    {
+      "op": "update_widget",
+      "key": "ItemBackground",
+      "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.25,
+        "brush_tint_g": 0.35,
+        "brush_tint_b": 0.80,
+        "brush_tint_a": 1.0,
+        "brush_corner_radius": 12.0,
+        "brush_outline_r": 0.0,
+        "brush_outline_g": 0.0,
+        "brush_outline_b": 0.0,
+        "brush_outline_a": 0.0,
+        "brush_outline_width": 0.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "ItemNameText",
+      "parent_key": "ItemBackground",
+      "widget_class": "/Script/UMG.TextBlock"
+    },
+    {
+      "op": "update_widget",
+      "key": "ItemNameText",
+      "properties": {
+        "text_justification": "center",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ItemBackground"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ItemNameText"
+    }
+  ]
+}

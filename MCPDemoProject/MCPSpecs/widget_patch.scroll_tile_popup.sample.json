@@ -1,0 +1,296 @@
+{
+  "schema_version": "1.0",
+  "mode": "patch",
+  "target_widget_path": "/Game/UI/Widget/WBP_MCPScrollTilePopup",
+  "parent_class_path": "/Script/MCPDemoProject.MCPScrollTilePopupWidget",
+  "operations": [
+    {
+      "op": "add_widget",
+      "key": "PopupRoot",
+      "widget_class": "/Script/UMG.CanvasPanel"
+    },
+    {
+      "op": "update_widget",
+      "key": "PopupRoot",
+      "properties": {
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 1.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 0.0,
+        "slot_size_y": 0.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "DimBlocker",
+      "parent_key": "PopupRoot",
+      "widget_class": "/Script/UMG.Border"
+    },
+    {
+      "op": "update_widget",
+      "key": "DimBlocker",
+      "properties": {
+        "border_draw_as": "image",
+        "brush_tint_r": 0.03,
+        "brush_tint_g": 0.03,
+        "brush_tint_b": 0.03,
+        "brush_tint_a": 0.72,
+        "slot_anchors_min_x": 0.0,
+        "slot_anchors_min_y": 0.0,
+        "slot_anchors_max_x": 1.0,
+        "slot_anchors_max_y": 1.0,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 0.0,
+        "slot_size_y": 0.0,
+        "slot_z_order": 0.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupPanel",
+      "parent_key": "PopupRoot",
+      "widget_class": "/Script/UMG.Border"
+    },
+    {
+      "op": "update_widget",
+      "key": "PopupPanel",
+      "properties": {
+        "border_draw_as": "rounded_box",
+        "brush_tint_r": 0.11,
+        "brush_tint_g": 0.12,
+        "brush_tint_b": 0.14,
+        "brush_tint_a": 0.98,
+        "brush_corner_radius": 14.0,
+        "brush_outline_r": 0.22,
+        "brush_outline_g": 0.24,
+        "brush_outline_b": 0.27,
+        "brush_outline_a": 1.0,
+        "brush_outline_width": 1.0,
+        "slot_anchors_min_x": 0.5,
+        "slot_anchors_min_y": 0.5,
+        "slot_anchors_max_x": 0.5,
+        "slot_anchors_max_y": 0.5,
+        "slot_alignment_x": 0.5,
+        "slot_alignment_y": 0.5,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 980.0,
+        "slot_size_y": 680.0,
+        "slot_z_order": 1.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "PopupVBox",
+      "parent_key": "PopupPanel",
+      "widget_class": "/Script/UMG.VerticalBox"
+    },
+    {
+      "op": "add_widget",
+      "key": "HeaderRow",
+      "parent_key": "PopupVBox",
+      "widget_class": "/Script/UMG.HorizontalBox"
+    },
+    {
+      "op": "update_widget",
+      "key": "HeaderRow",
+      "properties": {
+        "slot_padding_bottom": 12.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "TitleText",
+      "parent_key": "HeaderRow",
+      "widget_class": "/Script/UMG.TextBlock"
+    },
+    {
+      "op": "update_widget",
+      "key": "TitleText",
+      "properties": {
+        "text_color_r": 0.92,
+        "text_color_g": 0.93,
+        "text_color_b": 0.96,
+        "text_color_a": 1.0,
+        "slot_size_rule": "fill",
+        "slot_valign": "center"
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "CloseButton",
+      "parent_key": "HeaderRow",
+      "widget_class": "/Script/UMG.Button"
+    },
+    {
+      "op": "update_widget",
+      "key": "CloseButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 8.0,
+        "button_normal_r": 0.22,
+        "button_normal_g": 0.25,
+        "button_normal_b": 0.30,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.28,
+        "button_hovered_g": 0.31,
+        "button_hovered_b": 0.36,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.19,
+        "button_pressed_g": 0.22,
+        "button_pressed_b": 0.27,
+        "button_pressed_a": 1.0,
+        "slot_halign": "right",
+        "slot_valign": "center"
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "CloseLabel",
+      "parent_key": "CloseButton",
+      "widget_class": "/Script/UMG.TextBlock"
+    },
+    {
+      "op": "update_widget",
+      "key": "CloseLabel",
+      "properties": {
+        "text_justification": "center",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "ItemTileView",
+      "parent_key": "PopupVBox",
+      "widget_class": "/Script/UMG.TileView"
+    },
+    {
+      "op": "update_widget",
+      "key": "ItemTileView",
+      "properties": {
+        "slot_size_rule": "fill",
+        "slot_size_value": 1.0,
+        "slot_padding_bottom": 12.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "FooterRow",
+      "parent_key": "PopupVBox",
+      "widget_class": "/Script/UMG.HorizontalBox"
+    },
+    {
+      "op": "update_widget",
+      "key": "FooterRow",
+      "properties": {
+        "slot_padding_top": 4.0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "CountText",
+      "parent_key": "FooterRow",
+      "widget_class": "/Script/UMG.TextBlock"
+    },
+    {
+      "op": "update_widget",
+      "key": "CountText",
+      "properties": {
+        "text_color_r": 0.82,
+        "text_color_g": 0.85,
+        "text_color_b": 0.90,
+        "text_color_a": 1.0,
+        "slot_size_rule": "fill",
+        "slot_valign": "center"
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "AddItemsButton",
+      "parent_key": "FooterRow",
+      "widget_class": "/Script/UMG.Button"
+    },
+    {
+      "op": "update_widget",
+      "key": "AddItemsButton",
+      "properties": {
+        "button_draw_as": "rounded_box",
+        "button_corner_radius": 10.0,
+        "button_normal_r": 0.16,
+        "button_normal_g": 0.42,
+        "button_normal_b": 0.72,
+        "button_normal_a": 1.0,
+        "button_hovered_r": 0.20,
+        "button_hovered_g": 0.49,
+        "button_hovered_b": 0.80,
+        "button_hovered_a": 1.0,
+        "button_pressed_r": 0.12,
+        "button_pressed_g": 0.36,
+        "button_pressed_b": 0.64,
+        "button_pressed_a": 1.0,
+        "slot_halign": "right",
+        "slot_valign": "center"
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "AddItemsLabel",
+      "parent_key": "AddItemsButton",
+      "widget_class": "/Script/UMG.TextBlock"
+    },
+    {
+      "op": "update_widget",
+      "key": "AddItemsLabel",
+      "properties": {
+        "text_justification": "center",
+        "text_color_r": 1.0,
+        "text_color_g": 1.0,
+        "text_color_b": 1.0,
+        "text_color_a": 1.0
+      }
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "DimBlocker"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "PopupPanel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "TitleText"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "AddItemsButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "AddItemsLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CloseButton"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CloseLabel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "ItemTileView"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "CountText"
+    }
+  ]
+}
