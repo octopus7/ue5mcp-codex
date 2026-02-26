@@ -15,7 +15,25 @@
       "key": "btn_confirm",
       "parent_key": "root_panel",
       "widget_class": "/Script/UMG.Button",
-      "widget_name": "BtnConfirm"
+      "widget_name": "BtnConfirm",
+      "properties": {
+        "insert_index": 0
+      }
+    },
+    {
+      "op": "add_widget",
+      "key": "btn_cancel",
+      "parent_key": "root_panel",
+      "widget_class": "/Script/UMG.Button",
+      "widget_name": "BtnCancel"
+    },
+    {
+      "op": "reorder_widget",
+      "key": "btn_cancel",
+      "parent_key": "root_panel",
+      "properties": {
+        "insert_index": 0
+      }
     },
     {
       "op": "bind_widget_ref",

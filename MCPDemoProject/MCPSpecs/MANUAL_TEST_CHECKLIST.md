@@ -10,3 +10,4 @@
 8. Import texture under `/Game/UI/Textures` and confirm UI preset is auto-applied.
 9. Run `import.scan_and_repair` and confirm existing textures are corrected.
 10. Invoke any tool with `dry_run=true` and confirm no asset mutation while diff/report is returned.
+11. Use `add_widget`/`reparent_widget` with `insert_index`, and `reorder_widget` to confirm child insertion/reordering works as requested.

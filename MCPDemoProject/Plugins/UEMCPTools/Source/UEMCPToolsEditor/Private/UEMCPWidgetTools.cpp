@@ -346,6 +346,18 @@ void BuildWidgetIndex(UWidgetTree* WidgetTree, TMap<FString, UWidget*>& OutByKey
 	}
 }
 
+bool TryGetInsertIndex(const FMCPWidgetPatchOperation& Operation, int32& OutInsertIndex)
+{
+	const double* InsertIndexValue = Operation.NumberProps.Find(TEXT("insert_index"));
+	if (InsertIndexValue == nullptr)
+	{
+		return false;
+	}
+
+	OutInsertIndex = FMath::FloorToInt(*InsertIndexValue);
+	return true;
+}
+
 void AppendDiffEntry(TArray<TSharedPtr<FJsonValue>>& DiffEntries, const FString& Op, const FString& Key, const FString& Result, const FString& Detail)
 {
 	TSharedPtr<FJsonObject> Entry = MakeShared<FJsonObject>();
@@ -432,6 +444,16 @@ bool ParsePatchRequest(const FString& PayloadJson, FMCPWidgetPatchRequest& OutRe
 			ParsedOp.VariableName = ReadStringField(OpObject, TEXT("variable_name"));
 			ParsedOp.EventName = ReadStringField(OpObject, TEXT("event_name"));
 			ParsedOp.FunctionName = ReadStringField(OpObject, TEXT("function_name"));
+
+			double NumericFieldValue = 0.0;
+			if (OpObject->TryGetNumberField(TEXT("insert_index"), NumericFieldValue))
+			{
+				ParsedOp.NumberProps.Add(TEXT("insert_index"), NumericFieldValue);
+			}
+			else if (OpObject->TryGetNumberField(TEXT("new_index"), NumericFieldValue))
+			{
+				ParsedOp.NumberProps.Add(TEXT("insert_index"), NumericFieldValue);
+			}
 
 			const TSharedPtr<FJsonObject>* PropertiesObject = nullptr;
 			if (OpObject->TryGetObjectField(TEXT("properties"), PropertiesObject) && PropertiesObject != nullptr && PropertiesObject->IsValid())
@@ -605,6 +627,9 @@ bool ApplyAddWidgetOp(
 		ParentWidget = WidgetBlueprint->WidgetTree->RootWidget;
 	}
 
+	int32 RequestedInsertIndex = 0;
+	const bool bHasInsertIndex = TryGetInsertIndex(Operation, RequestedInsertIndex);
+
 	if (bDryRun)
 	{
 		Response.AppliedCount += 1;
@@ -630,12 +655,7 @@ bool ApplyAddWidgetOp(
 	}
 	else
 	{
-		if (UPanelWidget* ParentPanel = Cast<UPanelWidget>(ParentWidget))
-		{
-			ParentPanel->Modify();
-			ParentPanel->AddChild(NewWidget);
-		}
-		else if (UContentWidget* ParentContent = Cast<UContentWidget>(ParentWidget))
+		if (UContentWidget* ParentContent = Cast<UContentWidget>(ParentWidget))
 		{
 			if (ParentContent->GetContent() != nullptr)
 			{
@@ -648,6 +668,29 @@ bool ApplyAddWidgetOp(
 
 			ParentContent->Modify();
 			ParentContent->SetContent(NewWidget);
+			if (bHasInsertIndex)
+			{
+				Response.AddWarning(TEXT("insert_index_ignored"), TEXT("insert_index is ignored when parent is a content widget."), Key);
+			}
+		}
+		else if (UPanelWidget* ParentPanel = Cast<UPanelWidget>(ParentWidget))
+		{
+			ParentPanel->Modify();
+			ParentPanel->AddChild(NewWidget);
+			if (!ParentPanel->HasChild(NewWidget))
+			{
+				Response.SkippedCount += 1;
+				Response.AddWarning(TEXT("skip_failed_to_attach_child"), TEXT("Failed to attach child to parent panel."), Operation.ParentKey);
+				AppendDiffEntry(DiffEntries, TEXT("add_widget"), Key, TEXT("skipped"), TEXT("Failed to attach child to panel"));
+				WidgetBlueprint->WidgetTree->RemoveWidget(NewWidget);
+				return true;
+			}
+
+			if (bHasInsertIndex)
+			{
+				const int32 TargetIndex = FMath::Clamp(RequestedInsertIndex, 0, FMath::Max(0, ParentPanel->GetChildrenCount() - 1));
+				ParentPanel->ShiftChild(TargetIndex, NewWidget);
+			}
 		}
 		else
 		{
@@ -767,13 +810,16 @@ bool ApplyReparentWidgetOp(
 		return true;
 	}
 
-	UPanelWidget* NewParentPanel = Cast<UPanelWidget>(NewParent);
-	if (NewParentPanel == nullptr)
+	if (Widget->GetParent() == nullptr && WidgetBlueprint->WidgetTree->RootWidget == Widget)
 	{
 		Response.SkippedCount += 1;
-		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("New parent is not a panel"));
+		Response.AddWarning(TEXT("skip_root_reparent"), TEXT("reparent_widget cannot move the root widget directly."), Key);
+		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("Root widget reparent is not supported"));
 		return true;
 	}
+
+	int32 RequestedInsertIndex = 0;
+	const bool bHasInsertIndex = TryGetInsertIndex(Operation, RequestedInsertIndex);
 
 	if (bDryRun)
 	{
@@ -783,16 +829,172 @@ bool ApplyReparentWidgetOp(
 	}
 
 	WidgetBlueprint->Modify();
-	if (UPanelWidget* OldParent = Widget->GetParent())
+	if (UContentWidget* NewParentContent = Cast<UContentWidget>(NewParent))
+	{
+		if (NewParentContent->GetContent() != nullptr && NewParentContent->GetContent() != Widget)
+		{
+			Response.SkippedCount += 1;
+			Response.AddWarning(TEXT("skip_content_parent_occupied"), TEXT("New parent content widget already has a child."), NewParentKey);
+			AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("New parent content widget is occupied"));
+			return true;
+		}
+
+		if (UPanelWidget* OldParent = Widget->GetParent())
+		{
+			if (OldParent != NewParentContent)
+			{
+				OldParent->Modify();
+				OldParent->RemoveChild(Widget);
+			}
+		}
+
+		NewParentContent->Modify();
+		NewParentContent->SetContent(Widget);
+		if (bHasInsertIndex)
+		{
+			Response.AddWarning(TEXT("insert_index_ignored"), TEXT("insert_index is ignored when new_parent_key targets a content widget."), Key);
+		}
+
+		Response.AppliedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("applied"), TEXT("Widget reparented"));
+		return true;
+	}
+
+	UPanelWidget* NewParentPanel = Cast<UPanelWidget>(NewParent);
+	if (NewParentPanel == nullptr)
+	{
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("New parent is not a container"));
+		return true;
+	}
+
+	UPanelWidget* OldParent = Widget->GetParent();
+	if (OldParent != NewParentPanel && !NewParentPanel->CanAddMoreChildren() && !NewParentPanel->HasChild(Widget))
+	{
+		Response.SkippedCount += 1;
+		Response.AddWarning(TEXT("skip_parent_full"), TEXT("New parent panel cannot accept additional children."), NewParentKey);
+		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("New parent panel is full"));
+		return true;
+	}
+
+	if (OldParent != nullptr && OldParent != NewParentPanel)
 	{
 		OldParent->Modify();
 		OldParent->RemoveChild(Widget);
 	}
 
 	NewParentPanel->Modify();
-	NewParentPanel->AddChild(Widget);
+	if (!NewParentPanel->HasChild(Widget))
+	{
+		NewParentPanel->AddChild(Widget);
+	}
+	if (!NewParentPanel->HasChild(Widget))
+	{
+		Response.SkippedCount += 1;
+		Response.AddWarning(TEXT("skip_failed_to_attach_child"), TEXT("Failed to attach child to new parent panel."), NewParentKey);
+		AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("skipped"), TEXT("Failed to attach child to panel"));
+		return true;
+	}
+
+	if (bHasInsertIndex)
+	{
+		const int32 TargetIndex = FMath::Clamp(RequestedInsertIndex, 0, FMath::Max(0, NewParentPanel->GetChildrenCount() - 1));
+		NewParentPanel->ShiftChild(TargetIndex, Widget);
+	}
+
 	Response.AppliedCount += 1;
 	AppendDiffEntry(DiffEntries, TEXT("reparent_widget"), Key, TEXT("applied"), TEXT("Widget reparented"));
+	return true;
+}
+
+bool ApplyReorderWidgetOp(
+	const FMCPWidgetPatchOperation& Operation,
+	bool bDryRun,
+	TMap<FString, UWidget*>& WidgetByKey,
+	FMCPInvokeResponse& Response,
+	TArray<TSharedPtr<FJsonValue>>& DiffEntries)
+{
+	const FString Key = NormalizeKey(Operation.Key);
+	UWidget* Widget = nullptr;
+	if (UWidget* const* FoundWidget = WidgetByKey.Find(Key))
+	{
+		Widget = *FoundWidget;
+	}
+	if (Widget == nullptr)
+	{
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Widget key not found"));
+		return true;
+	}
+
+	if (!IsManagedWidget(Widget))
+	{
+		Response.SkippedCount += 1;
+		Response.AddWarning(TEXT("skip_manual_widget"), TEXT("reorder_widget skipped because target is not MCP-managed."), Key);
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Target not managed"));
+		return true;
+	}
+
+	int32 RequestedInsertIndex = 0;
+	if (!TryGetInsertIndex(Operation, RequestedInsertIndex))
+	{
+		Response.SkippedCount += 1;
+		Response.AddWarning(TEXT("skip_missing_insert_index"), TEXT("reorder_widget requires properties.insert_index (or top-level insert_index/new_index)."), Key);
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Missing insert_index"));
+		return true;
+	}
+
+	UPanelWidget* ParentPanel = Widget->GetParent();
+	if (ParentPanel == nullptr)
+	{
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Widget has no panel parent"));
+		return true;
+	}
+
+	if (!Operation.ParentKey.IsEmpty())
+	{
+		const FString ParentKey = NormalizeKey(Operation.ParentKey);
+		UWidget* ExpectedParent = nullptr;
+		if (UWidget* const* FoundParent = WidgetByKey.Find(ParentKey))
+		{
+			ExpectedParent = *FoundParent;
+		}
+		if (ExpectedParent == nullptr || ExpectedParent != ParentPanel)
+		{
+			Response.SkippedCount += 1;
+			AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("parent_key does not match current parent"));
+			return true;
+		}
+	}
+
+	const int32 CurrentIndex = ParentPanel->GetChildIndex(Widget);
+	if (CurrentIndex == INDEX_NONE)
+	{
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Widget is not attached to parent"));
+		return true;
+	}
+
+	const int32 TargetIndex = FMath::Clamp(RequestedInsertIndex, 0, FMath::Max(0, ParentPanel->GetChildrenCount() - 1));
+	if (CurrentIndex == TargetIndex)
+	{
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("skipped"), TEXT("Already at requested index"));
+		return true;
+	}
+
+	if (bDryRun)
+	{
+		Response.AppliedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("applied"), TEXT("Dry-run reorder"));
+		return true;
+	}
+
+	ParentPanel->Modify();
+	ParentPanel->ShiftChild(TargetIndex, Widget);
+	Response.AppliedCount += 1;
+	AppendDiffEntry(DiffEntries, TEXT("reorder_widget"), Key, TEXT("applied"), TEXT("Widget reordered"));
 	return true;
 }
 
@@ -1422,6 +1624,10 @@ bool ApplyOperationsToWidgetBlueprint(
 		else if (OpLower == TEXT("reparent_widget"))
 		{
 			ApplyReparentWidgetOp(WidgetBlueprint, Operation, bDryRun, WidgetByKey, Response, DiffEntries);
+		}
+		else if (OpLower == TEXT("reorder_widget"))
+		{
+			ApplyReorderWidgetOp(Operation, bDryRun, WidgetByKey, Response, DiffEntries);
 		}
 		else if (OpLower == TEXT("bind_widget_ref"))
 		{

@@ -54,6 +54,12 @@
     },
     {
       "op": "add_widget",
+      "key": "PopupOutline",
+      "widget_class": "/Script/UMG.Border",
+      "widget_name": "PopupOutline"
+    },
+    {
+      "op": "add_widget",
       "key": "ContentBox",
       "parent_key": "PopupPanel",
       "widget_class": "/Script/UMG.VerticalBox",
@@ -127,6 +133,41 @@
     },
     {
       "op": "update_widget",
+      "key": "PopupOutline",
+      "properties": {
+        "slot_anchors_min_x": 0.5,
+        "slot_anchors_min_y": 0.5,
+        "slot_anchors_max_x": 0.5,
+        "slot_anchors_max_y": 0.5,
+        "slot_alignment_x": 0.5,
+        "slot_alignment_y": 0.5,
+        "slot_position_x": 0.0,
+        "slot_position_y": 0.0,
+        "slot_size_x": 762.0,
+        "slot_size_y": 362.0,
+        "slot_z_order": 9,
+        "padding": 0.0,
+        "render_opacity": 1.0
+      }
+    },
+    {
+      "op": "reorder_widget",
+      "key": "PopupOutline",
+      "parent_key": "RootCanvas",
+      "properties": {
+        "insert_index": 1
+      }
+    },
+    {
+      "op": "reorder_widget",
+      "key": "PopupPanel",
+      "parent_key": "RootCanvas",
+      "properties": {
+        "insert_index": 2
+      }
+    },
+    {
+      "op": "update_widget",
       "key": "ContentBox",
       "properties": {
         "slot_halign": "fill",
@@ -194,6 +235,10 @@
     {
       "op": "bind_widget_ref",
       "key": "PopupPanel"
+    },
+    {
+      "op": "bind_widget_ref",
+      "key": "PopupOutline"
     },
     {
       "op": "bind_widget_ref",
