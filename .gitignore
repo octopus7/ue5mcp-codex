@@ -24,3 +24,6 @@ Saved/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ephemeral MCP patch payloads (generated at invoke time, deleted on success)
+MCPDemoProject/MCPSpecs/*.runtime.json

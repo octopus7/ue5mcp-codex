@@ -13,7 +13,7 @@ Editor-only Unreal Engine 5.7 MCP plugin project focused on automating repetitiv
 
 - Editor-only plugin: `MCPDemoProject/Plugins/UEMCPTools`
 - Local endpoint: `POST http://127.0.0.1:17777/mcp/v1/invoke`
-- Default specs folder: `MCPDemoProject/MCPSpecs`
+- Sample specs folder: `MCPDemoProject/MCPSpecs`
 - Manual checklist: `MCPDemoProject/MCPSpecs/MANUAL_TEST_CHECKLIST.md`
 
 Available tool IDs:
@@ -29,7 +29,7 @@ Widget/UI implementation policy:
 
 - Widget references are `BindWidget`-first with no runtime name-lookup fallback.
 - Bound widget names must match the managed naming rule: `MCP_<Key>`.
-- Visual style belongs to WBP assets driven by MCPSpec patch specs.
+- Visual style belongs to WBP assets. MCP patch payloads are transient apply inputs.
 - Runtime C++ handles behavior only (events, input mode, dynamic text values).
 
 ## Quick Usage
@@ -38,10 +38,14 @@ Widget/UI implementation policy:
 2. Check bridge/token settings in `MCPDemoProject/Config/DefaultEditor.ini`.
 3. Send MCP requests to `http://127.0.0.1:17777/mcp/v1/invoke`.
 
-PowerShell example (`widget.create_or_patch`):
+PowerShell example (`widget.create_or_patch`, ephemeral patch file):
 
 ```powershell
-$payload = Get-Content .\MCPDemoProject\MCPSpecs\widget_patch.sample.json -Raw | ConvertFrom-Json
+Copy-Item `
+  .\MCPDemoProject\MCPSpecs\widget_patch.sample.json `
+  .\MCPDemoProject\MCPSpecs\widget_patch.runtime.json
+
+$payload = Get-Content .\MCPDemoProject\MCPSpecs\widget_patch.runtime.json -Raw | ConvertFrom-Json
 
 $body = @{
   request_id = "req-001"
@@ -50,7 +54,7 @@ $body = @{
   payload    = $payload
 } | ConvertTo-Json -Depth 20
 
-Invoke-RestMethod `
+$response = Invoke-RestMethod `
   -Uri "http://127.0.0.1:17777/mcp/v1/invoke" `
   -Method Post `
   -ContentType "application/json" `
@@ -58,4 +62,5 @@ Invoke-RestMethod `
   -Body $body
 ```
 
-Use `dry_run = $true` to preview changes without mutating assets.
+If `$response.status` is `Success`, delete `*.runtime.json` manually.
+Set `dry_run = $true` to preview changes without mutating assets.

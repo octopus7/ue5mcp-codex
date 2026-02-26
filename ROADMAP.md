@@ -13,7 +13,7 @@ Build a generic, editor-only Unreal MCP plugin that automates UI asset workflows
 - Preserve user-edited widget assets by default.
 - Incremental delivery with strong test coverage.
 - Bind widget references through `BindWidget` and keep managed naming (`MCP_<Key>`) consistent.
-- Treat visual style as asset-driven SoT (MCPSpec patch + WBP), not runtime styling code.
+- Treat visual style as WBP-asset SoT. MCP patch payloads are transient apply inputs.
 
 ## Phases
 
@@ -22,7 +22,7 @@ Build a generic, editor-only Unreal MCP plugin that automates UI asset workflows
 - Implement folder-path-based image import rules (project-level, multiple targets).
 - Automate UI texture import settings on import/reimport.
 - Create Widget Blueprints from C++ `UUserWidget` classes.
-- Apply widget tree and binding changes in `patch` mode only.
+- Apply widget tree and binding changes in `patch` mode only (ephemeral payload workflow).
 - Add repair/reparent operations for MCP-managed nodes only.
 
 ### Phase 2 - Stability and Tooling

@@ -1,6 +1,6 @@
 # MCP Specs
 
-- `widget_patch.sample.json`: example payload for `widget.create_or_patch` and `widget.apply_ops`
+- `widget_patch.sample.json`: example payload for `widget.create_or_patch` and `widget.apply_ops` (copy to a transient runtime file before invoke)
 - `widget_repair.sample.json`: example payload for `widget.repair_tree`
 
 Widget patch operations support:
@@ -27,7 +27,8 @@ Binding policy:
 
 Style source of truth policy:
 
-- Widget visual style (color/brush/alignment/padding) is managed in MCPSpecs + WBP assets.
+- Widget visual style (color/brush/alignment/padding) is managed in WBP assets.
+- MCP patch payloads are transient invoke inputs and should be deleted after successful apply.
 - Runtime C++ should only handle behavior (input, events, text values), not persistent visual styling.
 
 Request envelope for local bridge:
