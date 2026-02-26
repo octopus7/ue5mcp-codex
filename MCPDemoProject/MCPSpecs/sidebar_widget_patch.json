@@ -121,7 +121,7 @@
       "op": "update_widget",
       "key": "ABStatusLabel",
       "properties": {
-        "text": "A: 0    B: 0",
+        "text": "A: 0    B: 0    C: 0",
         "text_color_r": 1.0,
         "text_color_g": 1.0,
         "text_color_b": 1.0,

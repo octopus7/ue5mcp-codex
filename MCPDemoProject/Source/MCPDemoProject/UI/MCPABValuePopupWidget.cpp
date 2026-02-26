@@ -2,6 +2,7 @@
 
 #include "Components/Border.h"
 #include "Components/Button.h"
+#include "Components/Slider.h"
 #include "Components/Spacer.h"
 #include "Components/TextBlock.h"
 
@@ -44,6 +45,12 @@ void UMCPABValuePopupWidget::NativeConstruct()
 		MCP_BIncButton->OnClicked.AddDynamic(this, &UMCPABValuePopupWidget::HandleBIncClicked);
 	}
 
+	if (MCP_CSlider != nullptr)
+	{
+		MCP_CSlider->OnValueChanged.RemoveDynamic(this, &UMCPABValuePopupWidget::HandleCSliderValueChanged);
+		MCP_CSlider->OnValueChanged.AddDynamic(this, &UMCPABValuePopupWidget::HandleCSliderValueChanged);
+	}
+
 	if (MCP_ConfirmButton != nullptr)
 	{
 		MCP_ConfirmButton->OnClicked.RemoveDynamic(this, &UMCPABValuePopupWidget::HandleConfirmClicked);
@@ -59,14 +66,16 @@ void UMCPABValuePopupWidget::NativeConstruct()
 	ApplyDefaultTexts();
 	CurrentA = ClampToRange(CurrentA);
 	CurrentB = ClampToRange(CurrentB);
+	CurrentC = ClampToRange(CurrentC);
 	RefreshValueTexts();
 	bCloseBroadcasted = false;
 }
 
-void UMCPABValuePopupWidget::OpenPopup(int32 InInitialA, int32 InInitialB)
+void UMCPABValuePopupWidget::OpenPopup(int32 InInitialA, int32 InInitialB, int32 InInitialC)
 {
 	CurrentA = ClampToRange(InInitialA);
 	CurrentB = ClampToRange(InInitialB);
+	CurrentC = ClampToRange(InInitialC);
 	bCloseBroadcasted = false;
 	RefreshValueTexts();
 
@@ -110,6 +119,12 @@ void UMCPABValuePopupWidget::HandleBIncClicked()
 	RefreshValueTexts();
 }
 
+void UMCPABValuePopupWidget::HandleCSliderValueChanged(float InValue)
+{
+	CurrentC = ClampToRange(FMath::RoundToInt(InValue));
+	RefreshValueTexts();
+}
+
 void UMCPABValuePopupWidget::HandleConfirmClicked()
 {
 	if (bCloseBroadcasted)
@@ -118,7 +133,7 @@ void UMCPABValuePopupWidget::HandleConfirmClicked()
 	}
 
 	bCloseBroadcasted = true;
-	OnABPopupConfirmed.Broadcast(CurrentA, CurrentB);
+	OnABPopupConfirmed.Broadcast(CurrentA, CurrentB, CurrentC);
 	RemoveFromParent();
 }
 
@@ -142,6 +157,11 @@ void UMCPABValuePopupWidget::ApplyDefaultTexts()
 	if (MCP_BLabel != nullptr && MCP_BLabel->GetText().IsEmpty())
 	{
 		MCP_BLabel->SetText(FText::FromString(TEXT("B")));
+	}
+
+	if (MCP_CLabel != nullptr && MCP_CLabel->GetText().IsEmpty())
+	{
+		MCP_CLabel->SetText(FText::FromString(TEXT("C")));
 	}
 
 	if (MCP_ADecLabel != nullptr && MCP_ADecLabel->GetText().IsEmpty())
@@ -185,6 +205,20 @@ void UMCPABValuePopupWidget::RefreshValueTexts()
 	if (MCP_BValueText != nullptr)
 	{
 		MCP_BValueText->SetText(FText::AsNumber(CurrentB));
+	}
+
+	if (MCP_CValueText != nullptr)
+	{
+		MCP_CValueText->SetText(FText::AsNumber(CurrentC));
+	}
+
+	if (MCP_CSlider != nullptr)
+	{
+		const float SliderValue = static_cast<float>(CurrentC);
+		if (!FMath::IsNearlyEqual(MCP_CSlider->GetValue(), SliderValue))
+		{
+			MCP_CSlider->SetValue(SliderValue);
+		}
 	}
 }
 

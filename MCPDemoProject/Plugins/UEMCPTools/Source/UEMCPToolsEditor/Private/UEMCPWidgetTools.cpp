@@ -10,7 +10,9 @@
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/ContentWidget.h"
+#include "Components/HorizontalBoxSlot.h"
 #include "Components/PanelWidget.h"
+#include "Components/Slider.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Components/Widget.h"
@@ -1482,6 +1484,63 @@ bool ApplyUpdateWidgetOp(
 		}
 	}
 
+	const bool bHasSliderProps =
+		Operation.NumberProps.Contains(TEXT("slider_min_value")) ||
+		Operation.NumberProps.Contains(TEXT("slider_max_value")) ||
+		Operation.NumberProps.Contains(TEXT("slider_value")) ||
+		Operation.NumberProps.Contains(TEXT("slider_step_size"));
+
+	if (bHasSliderProps)
+	{
+		if (USlider* SliderWidget = Cast<USlider>(Widget))
+		{
+			float MinValue = SliderWidget->GetMinValue();
+			float MaxValue = SliderWidget->GetMaxValue();
+			float SliderValue = SliderWidget->GetValue();
+			float StepSize = SliderWidget->GetStepSize();
+			float NumberValue = 0.0f;
+			bool bSliderChanged = false;
+
+			if (TryGetNumberProp(TEXT("slider_min_value"), NumberValue))
+			{
+				MinValue = NumberValue;
+				bSliderChanged = true;
+			}
+			if (TryGetNumberProp(TEXT("slider_max_value"), NumberValue))
+			{
+				MaxValue = NumberValue;
+				bSliderChanged = true;
+			}
+			if (TryGetNumberProp(TEXT("slider_value"), NumberValue))
+			{
+				SliderValue = NumberValue;
+				bSliderChanged = true;
+			}
+			if (TryGetNumberProp(TEXT("slider_step_size"), NumberValue))
+			{
+				StepSize = NumberValue;
+				bSliderChanged = true;
+			}
+
+			if (bSliderChanged)
+			{
+				bAnyChange = true;
+				if (!bDryRun)
+				{
+					SliderWidget->Modify();
+					SliderWidget->SetMinValue(MinValue);
+					SliderWidget->SetMaxValue(MaxValue);
+					SliderWidget->SetStepSize(StepSize);
+					SliderWidget->SetValue(SliderValue);
+				}
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_slider_property_target"), TEXT("slider_* properties are only supported for USlider widgets."), Key);
+		}
+	}
+
 	if (UVerticalBoxSlot* VerticalBoxSlot = Cast<UVerticalBoxSlot>(Widget->Slot))
 	{
 		bRecognizedSlotType = true;
@@ -1577,6 +1636,105 @@ bool ApplyUpdateWidgetOp(
 				VerticalBoxSlot->SetHorizontalAlignment(SlotHAlign);
 				VerticalBoxSlot->SetVerticalAlignment(SlotVAlign);
 				VerticalBoxSlot->SetSize(SlotSize);
+			}
+		}
+	}
+
+	if (UHorizontalBoxSlot* HorizontalBoxSlot = Cast<UHorizontalBoxSlot>(Widget->Slot))
+	{
+		bRecognizedSlotType = true;
+		FMargin SlotPadding = HorizontalBoxSlot->GetPadding();
+		EHorizontalAlignment SlotHAlign = HorizontalBoxSlot->GetHorizontalAlignment();
+		EVerticalAlignment SlotVAlign = HorizontalBoxSlot->GetVerticalAlignment();
+		FSlateChildSize SlotSize = HorizontalBoxSlot->GetSize();
+		bool bHorizontalSlotChanged = false;
+		float NumberValue = 0.0f;
+
+		if (TryGetNumberProp(TEXT("slot_padding"), NumberValue))
+		{
+			SlotPadding = FMargin(NumberValue);
+			bHorizontalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_left"), NumberValue))
+		{
+			SlotPadding.Left = NumberValue;
+			bHorizontalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_top"), NumberValue))
+		{
+			SlotPadding.Top = NumberValue;
+			bHorizontalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_right"), NumberValue))
+		{
+			SlotPadding.Right = NumberValue;
+			bHorizontalSlotChanged = true;
+		}
+		if (TryGetNumberProp(TEXT("slot_padding_bottom"), NumberValue))
+		{
+			SlotPadding.Bottom = NumberValue;
+			bHorizontalSlotChanged = true;
+		}
+
+		if (const FString* SlotHAlignValue = Operation.StringProps.Find(TEXT("slot_halign")))
+		{
+			EHorizontalAlignment Parsed = SlotHAlign;
+			if (ParseHorizontalAlignment(*SlotHAlignValue, Parsed))
+			{
+				SlotHAlign = Parsed;
+				bHorizontalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_halign"), TEXT("Unrecognized slot_halign value."), *SlotHAlignValue);
+			}
+		}
+
+		if (const FString* SlotVAlignValue = Operation.StringProps.Find(TEXT("slot_valign")))
+		{
+			EVerticalAlignment Parsed = SlotVAlign;
+			if (ParseVerticalAlignment(*SlotVAlignValue, Parsed))
+			{
+				SlotVAlign = Parsed;
+				bHorizontalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_valign"), TEXT("Unrecognized slot_valign value."), *SlotVAlignValue);
+			}
+		}
+
+		if (const FString* SlotSizeRuleValue = Operation.StringProps.Find(TEXT("slot_size_rule")))
+		{
+			ESlateSizeRule::Type ParsedRule = SlotSize.SizeRule;
+			if (ParseSlateSizeRule(*SlotSizeRuleValue, ParsedRule))
+			{
+				SlotSize.SizeRule = ParsedRule;
+				bHorizontalSlotChanged = true;
+			}
+			else
+			{
+				Response.AddWarning(TEXT("unknown_slot_size_rule"), TEXT("Unrecognized slot_size_rule value."), *SlotSizeRuleValue);
+			}
+		}
+
+		if (TryGetNumberProp(TEXT("slot_size_value"), NumberValue))
+		{
+			SlotSize.Value = NumberValue;
+			bHorizontalSlotChanged = true;
+		}
+
+		if (bHorizontalSlotChanged)
+		{
+			bAnySlotChange = true;
+			bAnyChange = true;
+			if (!bDryRun)
+			{
+				HorizontalBoxSlot->Modify();
+				HorizontalBoxSlot->SetPadding(SlotPadding);
+				HorizontalBoxSlot->SetHorizontalAlignment(SlotHAlign);
+				HorizontalBoxSlot->SetVerticalAlignment(SlotVAlign);
+				HorizontalBoxSlot->SetSize(SlotSize);
 			}
 		}
 	}

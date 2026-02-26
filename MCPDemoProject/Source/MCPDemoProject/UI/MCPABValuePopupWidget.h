@@ -6,10 +6,11 @@
 
 class UBorder;
 class UButton;
+class USlider;
 class USpacer;
 class UTextBlock;
 
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnABPopupConfirmed, int32, int32);
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnABPopupConfirmed, int32, int32, int32);
 DECLARE_MULTICAST_DELEGATE(FOnABPopupCancelled);
 
 UCLASS()
@@ -20,7 +21,7 @@ class MCPDEMOPROJECT_API UMCPABValuePopupWidget : public UUserWidget
 public:
 	virtual void NativeConstruct() override;
 
-	void OpenPopup(int32 InInitialA, int32 InInitialB);
+	void OpenPopup(int32 InInitialA, int32 InInitialB, int32 InInitialC);
 
 	FOnABPopupConfirmed OnABPopupConfirmed;
 	FOnABPopupCancelled OnABPopupCancelled;
@@ -42,6 +43,9 @@ protected:
 	void HandleBIncClicked();
 
 	UFUNCTION()
+	void HandleCSliderValueChanged(float InValue);
+
+	UFUNCTION()
 	void HandleConfirmClicked();
 
 	UFUNCTION()
@@ -58,6 +62,8 @@ private:
 	int32 CurrentA = 0;
 
 	int32 CurrentB = 0;
+
+	int32 CurrentC = 0;
 
 	UPROPERTY(EditDefaultsOnly, Category = "AB")
 	int32 MinValue = 0;
@@ -112,6 +118,15 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_BIncLabel;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_CLabel;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<USlider> MCP_CSlider;
+
+	UPROPERTY(meta = (BindWidget))
+	TObjectPtr<UTextBlock> MCP_CValueText;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<USpacer> MCP_BottomSpacer;

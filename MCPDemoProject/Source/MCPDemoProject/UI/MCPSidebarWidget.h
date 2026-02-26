@@ -36,7 +36,7 @@ private:
 	void SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget = nullptr);
 
 	void HandleMessagePopupClosed();
-	void HandleABPopupConfirmed(int32 FinalA, int32 FinalB);
+	void HandleABPopupConfirmed(int32 FinalA, int32 FinalB, int32 FinalC);
 	void HandleABPopupCancelled();
 	void RefreshABValueDisplay();
 
@@ -73,11 +73,17 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Menu2")
 	int32 Menu2InitialB = 0;
 
+	UPROPERTY(EditDefaultsOnly, Category = "Menu2")
+	int32 Menu2InitialC = 0;
+
 	UPROPERTY(Transient)
 	int32 DisplayedA = 0;
 
 	UPROPERTY(Transient)
 	int32 DisplayedB = 0;
+
+	UPROPERTY(Transient)
+	int32 DisplayedC = 0;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Popup")
 	TSubclassOf<UMCPMessagePopupWidget> MessagePopupWidgetClass;

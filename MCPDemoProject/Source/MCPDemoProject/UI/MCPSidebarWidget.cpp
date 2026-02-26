@@ -19,6 +19,7 @@ void UMCPSidebarWidget::NativeConstruct()
 
 	DisplayedA = Menu2InitialA;
 	DisplayedB = Menu2InitialB;
+	DisplayedC = Menu2InitialC;
 	RefreshABValueDisplay();
 
 	if (MCP_Menu1Button != nullptr)
@@ -84,7 +85,7 @@ void UMCPSidebarWidget::HandleMenu2Clicked()
 		PopupWidget->AddToViewport(1000);
 	}
 
-	PopupWidget->OpenPopup(DisplayedA, DisplayedB);
+	PopupWidget->OpenPopup(DisplayedA, DisplayedB, DisplayedC);
 	SetPopupModalInput(true, PopupWidget);
 }
 
@@ -252,14 +253,15 @@ void UMCPSidebarWidget::HandleMessagePopupClosed()
 	SetPopupModalInput(false, nullptr);
 }
 
-void UMCPSidebarWidget::HandleABPopupConfirmed(int32 FinalA, int32 FinalB)
+void UMCPSidebarWidget::HandleABPopupConfirmed(int32 FinalA, int32 FinalB, int32 FinalC)
 {
 	DisplayedA = FinalA;
 	DisplayedB = FinalB;
+	DisplayedC = FinalC;
 	RefreshABValueDisplay();
 	SetPopupModalInput(false, nullptr);
 
-	const FString FinalValueLog = FString::Printf(TEXT("AB confirmed. A=%d B=%d"), DisplayedA, DisplayedB);
+	const FString FinalValueLog = FString::Printf(TEXT("AB confirmed. A=%d B=%d C=%d"), DisplayedA, DisplayedB, DisplayedC);
 	ShowDebugMessage(FinalValueLog, FColor::Green);
 }
 
@@ -276,7 +278,7 @@ void UMCPSidebarWidget::RefreshABValueDisplay()
 		return;
 	}
 
-	MCP_ABStatusLabel->SetText(FText::FromString(FString::Printf(TEXT("A: %d    B: %d"), DisplayedA, DisplayedB)));
+	MCP_ABStatusLabel->SetText(FText::FromString(FString::Printf(TEXT("A: %d    B: %d    C: %d"), DisplayedA, DisplayedB, DisplayedC)));
 }
 
 void UMCPSidebarWidget::ShowDebugMessage(const FString& Message, const FColor& Color) const
