@@ -3,20 +3,98 @@
 #include "MCPScrollTileItemObject.h"
 #include "Blueprint/WidgetTree.h"
 #include "Components/Border.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/Image.h"
+#include "Components/Overlay.h"
+#include "Components/OverlaySlot.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
+#include "Engine/Texture2D.h"
 #include "Styling/SlateBrush.h"
 
 void UMCPScrollTileItemWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 	BuildFallbackWidgetTreeIfNeeded();
+	ApplySquareTileSize();
+	EnsureIconVisualTree();
 }
 
 void UMCPScrollTileItemWidget::NativeOnListItemObjectSet(UObject* ListItemObject)
 {
 	IUserObjectListEntry::NativeOnListItemObjectSet(ListItemObject);
 	ApplyItemObject(Cast<UMCPScrollTileItemObject>(ListItemObject));
+}
+
+void UMCPScrollTileItemWidget::ApplySquareTileSize()
+{
+	if (MCP_ItemSizeBox == nullptr)
+	{
+		return;
+	}
+
+	constexpr float TileItemSize = 160.0f;
+	MCP_ItemSizeBox->SetWidthOverride(TileItemSize);
+	MCP_ItemSizeBox->SetHeightOverride(TileItemSize);
+
+	if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(MCP_ItemSizeBox->Slot))
+	{
+		CanvasSlot->SetSize(FVector2D(TileItemSize, TileItemSize));
+	}
+}
+
+void UMCPScrollTileItemWidget::EnsureIconVisualTree()
+{
+	if (MCP_ItemBackground == nullptr || WidgetTree == nullptr)
+	{
+		return;
+	}
+
+	if (MCP_ItemIconImage != nullptr)
+	{
+		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
+		return;
+	}
+
+	UWidget* ExistingContent = MCP_ItemBackground->GetContent();
+	if (ExistingContent == nullptr && MCP_ItemNameText != nullptr)
+	{
+		ExistingContent = MCP_ItemNameText;
+	}
+
+	if (ExistingContent == nullptr)
+	{
+		return;
+	}
+
+	UOverlay* Overlay = WidgetTree->ConstructWidget<UOverlay>(UOverlay::StaticClass(), TEXT("MCP_ItemOverlayRuntime"));
+	if (Overlay == nullptr)
+	{
+		return;
+	}
+
+	MCP_ItemBackground->SetContent(Overlay);
+
+	MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
+	if (MCP_ItemIconImage != nullptr)
+	{
+		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
+		Overlay->AddChildToOverlay(MCP_ItemIconImage);
+		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconImage->Slot))
+		{
+			IconSlot->SetHorizontalAlignment(HAlign_Center);
+			IconSlot->SetVerticalAlignment(VAlign_Center);
+			IconSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
+		}
+	}
+
+	Overlay->AddChildToOverlay(ExistingContent);
+	if (UOverlaySlot* NameSlot = Cast<UOverlaySlot>(ExistingContent->Slot))
+	{
+		NameSlot->SetHorizontalAlignment(HAlign_Center);
+		NameSlot->SetVerticalAlignment(VAlign_Bottom);
+		NameSlot->SetPadding(FMargin(8.0f, 0.0f, 8.0f, 10.0f));
+	}
 }
 
 void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
@@ -42,7 +120,7 @@ void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
 		return;
 	}
 	ItemSizeBox->SetWidthOverride(160.0f);
-	ItemSizeBox->SetHeightOverride(72.0f);
+	ItemSizeBox->SetHeightOverride(160.0f);
 	WidgetTree->RootWidget = ItemSizeBox;
 
 	MCP_ItemBackground = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("MCP_ItemBackground"));
@@ -53,6 +131,26 @@ void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
 	ItemSizeBox->SetContent(MCP_ItemBackground);
 	MCP_ItemBackground->SetPadding(FMargin(10.0f, 8.0f));
 
+	UOverlay* ItemOverlay = WidgetTree->ConstructWidget<UOverlay>(UOverlay::StaticClass(), TEXT("MCP_ItemOverlay"));
+	if (ItemOverlay == nullptr)
+	{
+		return;
+	}
+	MCP_ItemBackground->SetContent(ItemOverlay);
+
+	MCP_ItemIconImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("MCP_ItemIconImage"));
+	if (MCP_ItemIconImage != nullptr)
+	{
+		MCP_ItemIconImage->SetDesiredSizeOverride(FVector2D(128.0f, 128.0f));
+		ItemOverlay->AddChildToOverlay(MCP_ItemIconImage);
+		if (UOverlaySlot* IconSlot = Cast<UOverlaySlot>(MCP_ItemIconImage->Slot))
+		{
+			IconSlot->SetHorizontalAlignment(HAlign_Center);
+			IconSlot->SetVerticalAlignment(VAlign_Center);
+			IconSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
+		}
+	}
+
 	MCP_ItemNameText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("MCP_ItemNameText"));
 	if (MCP_ItemNameText == nullptr)
 	{
@@ -60,7 +158,13 @@ void UMCPScrollTileItemWidget::BuildFallbackWidgetTreeIfNeeded()
 	}
 	MCP_ItemNameText->SetJustification(ETextJustify::Center);
 	MCP_ItemNameText->SetText(FText::FromString(TEXT("Item")));
-	MCP_ItemBackground->SetContent(MCP_ItemNameText);
+	ItemOverlay->AddChildToOverlay(MCP_ItemNameText);
+	if (UOverlaySlot* NameSlot = Cast<UOverlaySlot>(MCP_ItemNameText->Slot))
+	{
+		NameSlot->SetHorizontalAlignment(HAlign_Center);
+		NameSlot->SetVerticalAlignment(VAlign_Bottom);
+		NameSlot->SetPadding(FMargin(8.0f, 0.0f, 8.0f, 10.0f));
+	}
 }
 
 void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* ItemObject)
@@ -93,5 +197,18 @@ void UMCPScrollTileItemWidget::ApplyItemObject(const UMCPScrollTileItemObject* I
 			(0.0722f * ItemObject->BackgroundColor.B);
 		const FLinearColor ItemTextColor = (Luminance > 0.60f) ? FLinearColor::Black : FLinearColor::White;
 		MCP_ItemNameText->SetColorAndOpacity(FSlateColor(ItemTextColor));
+	}
+
+	if (MCP_ItemIconImage != nullptr)
+	{
+		if (ItemObject->IconTexture != nullptr)
+		{
+			MCP_ItemIconImage->SetBrushFromTexture(ItemObject->IconTexture, false);
+			MCP_ItemIconImage->SetVisibility(ESlateVisibility::Visible);
+		}
+		else
+		{
+			MCP_ItemIconImage->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 }

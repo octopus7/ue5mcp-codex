@@ -14,8 +14,11 @@
 #include "Components/TileView.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Engine/Texture2D.h"
+#include "HAL/FileManager.h"
 #include "Input/Events.h"
 #include "InputCoreTypes.h"
+#include "Misc/Paths.h"
 #include "Styling/SlateBrush.h"
 #include "UObject/SoftObjectPath.h"
 #include "UObject/UnrealType.h"
@@ -60,6 +63,7 @@ void UMCPScrollTilePopupWidget::NativeConstruct()
 
 	BuildFallbackWidgetTreeIfNeeded();
 	ResolveItemWidgetClass();
+	ResolveIconTextures();
 	EnsureTileViewEntryClass(MCP_ItemTileView);
 	ApplyDefaultTexts();
 	RefreshCountText();
@@ -68,7 +72,7 @@ void UMCPScrollTilePopupWidget::NativeConstruct()
 	if (MCP_ItemTileView != nullptr)
 	{
 		MCP_ItemTileView->SetEntryWidth(172.0f);
-		MCP_ItemTileView->SetEntryHeight(100.0f);
+		MCP_ItemTileView->SetEntryHeight(172.0f);
 		MCP_ItemTileView->SetSelectionMode(ESelectionMode::None);
 		MCP_ItemTileView->OnGetEntryClassForItem().BindUObject(this, &UMCPScrollTilePopupWidget::GetEntryClassForItem);
 	}
@@ -431,6 +435,34 @@ void UMCPScrollTilePopupWidget::ResolveItemWidgetClass()
 	}
 }
 
+void UMCPScrollTilePopupWidget::ResolveIconTextures()
+{
+	if (!IconTextures.IsEmpty())
+	{
+		return;
+	}
+
+	const FString IconsDir = FPaths::Combine(FPaths::ProjectContentDir(), TEXT("UI"), TEXT("Icons"));
+	const FString IconsSearchPattern = FPaths::Combine(IconsDir, TEXT("*.uasset"));
+	TArray<FString> IconAssetFiles;
+	IFileManager::Get().FindFiles(IconAssetFiles, *IconsSearchPattern, true, false);
+
+	for (const FString& IconAssetFile : IconAssetFiles)
+	{
+		const FString AssetName = FPaths::GetBaseFilename(IconAssetFile);
+		const FString AssetPath = FString::Printf(TEXT("/Game/UI/Icons/%s.%s"), *AssetName, *AssetName);
+		if (UTexture2D* IconTexture = LoadObject<UTexture2D>(nullptr, *AssetPath))
+		{
+			IconTextures.Add(IconTexture);
+		}
+	}
+
+	if (IconTextures.IsEmpty())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPScrollTilePopup] No textures found in /Game/UI/Icons."));
+	}
+}
+
 TSubclassOf<UUserWidget> UMCPScrollTilePopupWidget::GetEntryClassForItem(UObject* ItemObject)
 {
 	(void)ItemObject;
@@ -513,5 +545,11 @@ UMCPScrollTileItemObject* UMCPScrollTilePopupWidget::CreateRandomItemData(int32 
 
 	Data->BackgroundColor = FLinearColor::MakeFromHSV8(Hue, Sat, Val);
 	Data->Name = FText::FromString(FString::Printf(TEXT("Item %d"), ItemIndex));
+	ResolveIconTextures();
+	if (!IconTextures.IsEmpty())
+	{
+		const int32 IconIndex = FMath::RandRange(0, IconTextures.Num() - 1);
+		Data->IconTexture = IconTextures[IconIndex];
+	}
 	return Data;
 }

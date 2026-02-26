@@ -8,6 +8,7 @@
 class UBorder;
 class UButton;
 class UTextBlock;
+class UTexture2D;
 class UTileView;
 class UMCPScrollTileItemObject;
 class UMCPScrollTileItemWidget;
@@ -51,6 +52,7 @@ private:
 	void BuildFallbackWidgetTreeIfNeeded();
 	void ApplyDefaultTexts();
 	void ResolveItemWidgetClass();
+	void ResolveIconTextures();
 	TSubclassOf<UUserWidget> GetEntryClassForItem(UObject* ItemObject);
 	void ResetToInitialItems();
 	void AppendItems(int32 Count);
@@ -72,6 +74,9 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UMCPScrollTileItemObject>> ItemObjects;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTexture2D>> IconTextures;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UBorder> MCP_DimBlocker;

@@ -4,6 +4,8 @@
 #include "UObject/Object.h"
 #include "MCPScrollTileItemObject.generated.h"
 
+class UTexture2D;
+
 UCLASS(BlueprintType)
 class MCPDEMOPROJECT_API UMCPScrollTileItemObject : public UObject
 {
@@ -15,4 +17,7 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ScrollTile")
 	FText Name;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ScrollTile")
+	TObjectPtr<UTexture2D> IconTexture = nullptr;
 };

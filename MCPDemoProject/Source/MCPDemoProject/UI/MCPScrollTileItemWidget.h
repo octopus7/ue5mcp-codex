@@ -6,6 +6,9 @@
 #include "MCPScrollTileItemWidget.generated.h"
 
 class UBorder;
+class UImage;
+class UOverlay;
+class USizeBox;
 class UTextBlock;
 class UMCPScrollTileItemObject;
 
@@ -20,11 +23,19 @@ public:
 
 private:
 	void BuildFallbackWidgetTreeIfNeeded();
+	void ApplySquareTileSize();
+	void EnsureIconVisualTree();
 	void ApplyItemObject(const UMCPScrollTileItemObject* ItemObject);
 
 private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UBorder> MCP_ItemBackground;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UImage> MCP_ItemIconImage;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<USizeBox> MCP_ItemSizeBox;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_ItemNameText;
