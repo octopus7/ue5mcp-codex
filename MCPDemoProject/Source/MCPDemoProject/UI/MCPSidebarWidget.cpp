@@ -58,18 +58,30 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu5Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu5Clicked);
 	}
 
+	if (MCP_Menu6Button != nullptr)
+	{
+		MCP_Menu6Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleMenu6Clicked);
+		MCP_Menu6Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu6Clicked);
+	}
+
 	if (MCP_Menu5Label != nullptr && MCP_Menu5Label->GetText().IsEmpty())
 	{
 		MCP_Menu5Label->SetText(FText::FromString(TEXT("Confirm Popup")));
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s"),
+	if (MCP_Menu6Label != nullptr && MCP_Menu6Label->GetText().IsEmpty())
+	{
+		MCP_Menu6Label->SetText(FText::FromString(TEXT("Form Popup")));
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s M6=%s"),
 		MCP_SidebarPanel != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu1Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu2Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu3Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"),
-		MCP_Menu5Button != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_Menu5Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Menu6Button != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPSidebarWidget::HandleMenu1Clicked()
@@ -183,6 +195,42 @@ void UMCPSidebarWidget::HandleMenu5Clicked()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Confirm popup request rejected by popup manager."));
 		ShowDebugMessage(TEXT("Confirm popup request rejected"), FColor::Red);
+	}
+}
+
+void UMCPSidebarWidget::HandleMenu6Clicked()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu6 (FormPopup) clicked."));
+
+	ULocalPlayer* OwningLocalPlayer = GetOwningLocalPlayer();
+	if (OwningLocalPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open form popup: owning local player is null."));
+		return;
+	}
+
+	UMCPPopupManagerSubsystem* PopupManager = OwningLocalPlayer->GetSubsystem<UMCPPopupManagerSubsystem>();
+	if (PopupManager == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open form popup: popup manager subsystem is null."));
+		return;
+	}
+
+	FMCPFormPopupRequest Request;
+	Request.Title = FText::FromString(TEXT("Form Sample Popup"));
+	Request.Message = FText::FromString(TEXT("Fill the form and submit."));
+	Request.NameHint = FText::FromString(TEXT("Enter name"));
+	Request.CheckLabel = FText::FromString(TEXT("Enable Option"));
+	Request.ComboOptions = { TEXT("Option A"), TEXT("Option B"), TEXT("Option C") };
+	Request.DefaultComboIndex = 0;
+	Request.SubmitLabel = FText::FromString(TEXT("Submit"));
+	Request.CancelLabel = FText::FromString(TEXT("Cancel"));
+	Request.Callback = FMCPFormPopupResultCallback::CreateUObject(this, &UMCPSidebarWidget::HandleMenu6FormResult);
+
+	if (!PopupManager->RequestFormPopup(MoveTemp(Request)))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Form popup request rejected by popup manager."));
+		ShowDebugMessage(TEXT("Form popup request rejected"), FColor::Red);
 	}
 }
 
@@ -499,6 +547,19 @@ void UMCPSidebarWidget::HandleMenu5ConfirmResult(bool bConfirmed)
 	ShowDebugMessage(
 		bConfirmed ? TEXT("Confirm popup confirmed") : TEXT("Confirm popup canceled"),
 		bConfirmed ? FColor::Green : FColor::Orange);
+}
+
+void UMCPSidebarWidget::HandleMenu6FormResult(const FMCPFormPopupResult& Result)
+{
+	const FString Status = Result.bSubmitted ? TEXT("submitted") : TEXT("canceled");
+	const FString Message = FString::Printf(
+		TEXT("Form popup %s: Name='%s' Checked=%s Option='%s'"),
+		*Status,
+		*Result.NameValue.ToString(),
+		Result.bChecked ? TEXT("true") : TEXT("false"),
+		*Result.SelectedOption);
+
+	ShowDebugMessage(Message, Result.bSubmitted ? FColor::Green : FColor::Orange);
 }
 
 void UMCPSidebarWidget::RefreshABValueDisplay()

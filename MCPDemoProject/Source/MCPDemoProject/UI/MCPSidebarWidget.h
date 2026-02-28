@@ -11,6 +11,7 @@ class UMCPABValuePopupWidget;
 class UMCPMessagePopupWidget;
 class UMCPScrollGridPopupWidget;
 class UMCPScrollTilePopupWidget;
+struct FMCPFormPopupResult;
 
 UCLASS()
 class MCPDEMOPROJECT_API UMCPSidebarWidget : public UUserWidget
@@ -36,6 +37,9 @@ protected:
 	UFUNCTION()
 	void HandleMenu5Clicked();
 
+	UFUNCTION()
+	void HandleMenu6Clicked();
+
 private:
 	void ResolveMessagePopupClass();
 	UMCPMessagePopupWidget* GetOrCreateMessagePopup();
@@ -53,6 +57,7 @@ private:
 	void HandleScrollGridPopupClosed();
 	void HandleScrollTilePopupClosed();
 	void HandleMenu5ConfirmResult(bool bConfirmed);
+	void HandleMenu6FormResult(const FMCPFormPopupResult& Result);
 	void RefreshABValueDisplay();
 
 	void ShowDebugMessage(const FString& Message, const FColor& Color) const;
@@ -76,6 +81,9 @@ private:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> MCP_Menu5Button;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Menu6Button;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu1Label;
 
@@ -90,6 +98,9 @@ private:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> MCP_Menu5Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Menu6Label;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_ABStatusLabel;

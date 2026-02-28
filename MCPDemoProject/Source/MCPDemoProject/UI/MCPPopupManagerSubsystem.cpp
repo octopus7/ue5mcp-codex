@@ -6,16 +6,28 @@
 
 void UMCPPopupManagerSubsystem::Deinitialize()
 {
-	if (ActivePopupInstance != nullptr)
+	if (ActiveConfirmPopupInstance != nullptr)
 	{
-		ActivePopupInstance->OnConfirmed.RemoveAll(this);
-		ActivePopupInstance->OnCancelled.RemoveAll(this);
-		ActivePopupInstance->RemoveFromParent();
-		ActivePopupInstance = nullptr;
+		ActiveConfirmPopupInstance->OnConfirmed.RemoveAll(this);
+		ActiveConfirmPopupInstance->OnCancelled.RemoveAll(this);
+		ActiveConfirmPopupInstance->RemoveFromParent();
+		ActiveConfirmPopupInstance = nullptr;
 	}
 
-	PendingRequests.Reset();
-	ActiveRequest.Reset();
+	if (ActiveFormPopupInstance != nullptr)
+	{
+		ActiveFormPopupInstance->OnSubmitted.RemoveAll(this);
+		ActiveFormPopupInstance->OnCancelled.RemoveAll(this);
+		ActiveFormPopupInstance->RemoveFromParent();
+		ActiveFormPopupInstance = nullptr;
+	}
+
+	PendingPopupOrder.Reset();
+	PendingConfirmRequests.Reset();
+	PendingFormRequests.Reset();
+	ActivePopupType.Reset();
+	ActiveConfirmRequest.Reset();
+	ActiveFormRequest.Reset();
 	bPopupActive = false;
 
 	Super::Deinitialize();
@@ -23,25 +35,50 @@ void UMCPPopupManagerSubsystem::Deinitialize()
 
 bool UMCPPopupManagerSubsystem::RequestConfirmPopup(FMCPConfirmPopupRequest Request)
 {
-	if (PendingRequests.Num() >= MaxPendingRequests)
+	if (PendingPopupOrder.Num() >= MaxPendingRequests)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[MCPPopupManager] Confirm queue overflow (max=%d). Request rejected."), MaxPendingRequests);
 		return false;
 	}
 
-	PendingRequests.Add(MoveTemp(Request));
+	PendingConfirmRequests.Add(MoveTemp(Request));
+	PendingPopupOrder.Add(EMCPPopupRequestType::Confirm);
+	TryShowNext();
+	return true;
+}
+
+bool UMCPPopupManagerSubsystem::RequestFormPopup(FMCPFormPopupRequest Request)
+{
+	if (PendingPopupOrder.Num() >= MaxPendingRequests)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPPopupManager] Form queue overflow (max=%d). Request rejected."), MaxPendingRequests);
+		return false;
+	}
+
+	PendingFormRequests.Add(MoveTemp(Request));
+	PendingPopupOrder.Add(EMCPPopupRequestType::Form);
 	TryShowNext();
 	return true;
 }
 
 bool UMCPPopupManagerSubsystem::IsConfirmPopupActive() const
 {
+	return bPopupActive && ActivePopupType.IsSet() && ActivePopupType.GetValue() == EMCPPopupRequestType::Confirm;
+}
+
+bool UMCPPopupManagerSubsystem::IsAnyPopupActive() const
+{
 	return bPopupActive;
 }
 
 int32 UMCPPopupManagerSubsystem::GetPendingConfirmPopupCount() const
 {
-	return PendingRequests.Num();
+	return PendingConfirmRequests.Num();
+}
+
+int32 UMCPPopupManagerSubsystem::GetPendingPopupCount() const
+{
+	return PendingPopupOrder.Num();
 }
 
 void UMCPPopupManagerSubsystem::ResolveConfirmPopupClass()
@@ -73,9 +110,9 @@ void UMCPPopupManagerSubsystem::ResolveConfirmPopupClass()
 
 UMCPConfirmPopupWidget* UMCPPopupManagerSubsystem::GetOrCreateConfirmPopup()
 {
-	if (ActivePopupInstance != nullptr)
+	if (ActiveConfirmPopupInstance != nullptr)
 	{
-		return ActivePopupInstance;
+		return ActiveConfirmPopupInstance;
 	}
 
 	ResolveConfirmPopupClass();
@@ -91,16 +128,75 @@ UMCPConfirmPopupWidget* UMCPPopupManagerSubsystem::GetOrCreateConfirmPopup()
 		return nullptr;
 	}
 
-	ActivePopupInstance = CreateWidget<UMCPConfirmPopupWidget>(OwningPlayer, ConfirmPopupWidgetClass);
-	if (ActivePopupInstance != nullptr)
+	ActiveConfirmPopupInstance = CreateWidget<UMCPConfirmPopupWidget>(OwningPlayer, ConfirmPopupWidgetClass);
+	if (ActiveConfirmPopupInstance != nullptr)
 	{
-		ActivePopupInstance->OnConfirmed.RemoveAll(this);
-		ActivePopupInstance->OnCancelled.RemoveAll(this);
-		ActivePopupInstance->OnConfirmed.AddUObject(this, &UMCPPopupManagerSubsystem::HandlePopupConfirmed);
-		ActivePopupInstance->OnCancelled.AddUObject(this, &UMCPPopupManagerSubsystem::HandlePopupCancelled);
+		ActiveConfirmPopupInstance->OnConfirmed.RemoveAll(this);
+		ActiveConfirmPopupInstance->OnCancelled.RemoveAll(this);
+		ActiveConfirmPopupInstance->OnConfirmed.AddUObject(this, &UMCPPopupManagerSubsystem::HandlePopupConfirmed);
+		ActiveConfirmPopupInstance->OnCancelled.AddUObject(this, &UMCPPopupManagerSubsystem::HandlePopupCancelled);
 	}
 
-	return ActivePopupInstance;
+	return ActiveConfirmPopupInstance;
+}
+
+void UMCPPopupManagerSubsystem::ResolveFormPopupClass()
+{
+	if (FormPopupWidgetClass != nullptr)
+	{
+		return;
+	}
+
+	static const TCHAR* PopupClassPath = TEXT("/Game/UI/Widget/WBP_MCPFormPopup.WBP_MCPFormPopup_C");
+	UClass* LoadedClass = LoadClass<UMCPFormPopupWidget>(nullptr, PopupClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PopupClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPFormPopupWidget>();
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		FormPopupWidgetClass = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPPopupManager] Loaded form popup widget class: %s"), *GetNameSafe(LoadedClass));
+	}
+	else
+	{
+		FormPopupWidgetClass = UMCPFormPopupWidget::StaticClass();
+		UE_LOG(LogTemp, Warning, TEXT("[MCPPopupManager] Form popup widget class not found at %s. Falling back to native class."), PopupClassPath);
+	}
+}
+
+UMCPFormPopupWidget* UMCPPopupManagerSubsystem::GetOrCreateFormPopup()
+{
+	if (ActiveFormPopupInstance != nullptr)
+	{
+		return ActiveFormPopupInstance;
+	}
+
+	ResolveFormPopupClass();
+	if (FormPopupWidgetClass == nullptr)
+	{
+		return nullptr;
+	}
+
+	APlayerController* OwningPlayer = ResolveOwningPlayerController();
+	if (OwningPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPPopupManager] Missing owning player controller while creating form popup."));
+		return nullptr;
+	}
+
+	ActiveFormPopupInstance = CreateWidget<UMCPFormPopupWidget>(OwningPlayer, FormPopupWidgetClass);
+	if (ActiveFormPopupInstance != nullptr)
+	{
+		ActiveFormPopupInstance->OnSubmitted.RemoveAll(this);
+		ActiveFormPopupInstance->OnCancelled.RemoveAll(this);
+		ActiveFormPopupInstance->OnSubmitted.AddUObject(this, &UMCPPopupManagerSubsystem::HandleFormPopupSubmitted);
+		ActiveFormPopupInstance->OnCancelled.AddUObject(this, &UMCPPopupManagerSubsystem::HandleFormPopupCancelled);
+	}
+
+	return ActiveFormPopupInstance;
 }
 
 APlayerController* UMCPPopupManagerSubsystem::ResolveOwningPlayerController() const
@@ -149,51 +245,96 @@ void UMCPPopupManagerSubsystem::SetPopupModalInput(bool bEnabled, UUserWidget* F
 
 void UMCPPopupManagerSubsystem::TryShowNext()
 {
-	if (bPopupActive || PendingRequests.IsEmpty())
+	if (bPopupActive)
 	{
 		return;
 	}
 
-	UMCPConfirmPopupWidget* PopupWidget = GetOrCreateConfirmPopup();
-	if (PopupWidget == nullptr)
+	while (!PendingPopupOrder.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[MCPPopupManager] Failed to show confirm popup: widget creation failed."));
+		const EMCPPopupRequestType NextType = PendingPopupOrder[0];
+		PendingPopupOrder.RemoveAt(0);
+
+		if (NextType == EMCPPopupRequestType::Confirm)
+		{
+			if (PendingConfirmRequests.IsEmpty())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[MCPPopupManager] Confirm popup order entry had no matching request."));
+				continue;
+			}
+
+			UMCPConfirmPopupWidget* PopupWidget = GetOrCreateConfirmPopup();
+			if (PopupWidget == nullptr)
+			{
+				UE_LOG(LogTemp, Error, TEXT("[MCPPopupManager] Failed to show confirm popup: widget creation failed."));
+				continue;
+			}
+
+			ActiveConfirmRequest = MoveTemp(PendingConfirmRequests[0]);
+			PendingConfirmRequests.RemoveAt(0);
+			ActivePopupType = EMCPPopupRequestType::Confirm;
+			bPopupActive = true;
+
+			if (!PopupWidget->IsInViewport())
+			{
+				PopupWidget->AddToViewport(1100);
+			}
+
+			PopupWidget->OpenPopup(ActiveConfirmRequest.GetValue());
+			SetPopupModalInput(true, PopupWidget);
+			return;
+		}
+
+		if (PendingFormRequests.IsEmpty())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("[MCPPopupManager] Form popup order entry had no matching request."));
+			continue;
+		}
+
+		UMCPFormPopupWidget* PopupWidget = GetOrCreateFormPopup();
+		if (PopupWidget == nullptr)
+		{
+			UE_LOG(LogTemp, Error, TEXT("[MCPPopupManager] Failed to show form popup: widget creation failed."));
+			continue;
+		}
+
+		ActiveFormRequest = MoveTemp(PendingFormRequests[0]);
+		PendingFormRequests.RemoveAt(0);
+		ActivePopupType = EMCPPopupRequestType::Form;
+		bPopupActive = true;
+
+		if (!PopupWidget->IsInViewport())
+		{
+			PopupWidget->AddToViewport(1100);
+		}
+
+		PopupWidget->OpenPopup(ActiveFormRequest.GetValue());
+		SetPopupModalInput(true, PopupWidget);
 		return;
 	}
-
-	ActiveRequest = MoveTemp(PendingRequests[0]);
-	PendingRequests.RemoveAt(0);
-	bPopupActive = true;
-
-	if (!PopupWidget->IsInViewport())
-	{
-		PopupWidget->AddToViewport(1100);
-	}
-
-	PopupWidget->OpenPopup(ActiveRequest.GetValue());
-	SetPopupModalInput(true, PopupWidget);
 }
 
 void UMCPPopupManagerSubsystem::HandlePopupConfirmed()
 {
-	HandleActivePopupResult(true);
+	HandleActiveConfirmPopupResult(true);
 }
 
 void UMCPPopupManagerSubsystem::HandlePopupCancelled()
 {
-	HandleActivePopupResult(false);
+	HandleActiveConfirmPopupResult(false);
 }
 
-void UMCPPopupManagerSubsystem::HandleActivePopupResult(bool bConfirmed)
+void UMCPPopupManagerSubsystem::HandleActiveConfirmPopupResult(bool bConfirmed)
 {
 	FMCPConfirmPopupRequest FinishedRequest;
-	const bool bHadActiveRequest = ActiveRequest.IsSet();
+	const bool bHadActiveRequest = ActiveConfirmRequest.IsSet();
 	if (bHadActiveRequest)
 	{
-		FinishedRequest = MoveTemp(ActiveRequest.GetValue());
-		ActiveRequest.Reset();
+		FinishedRequest = MoveTemp(ActiveConfirmRequest.GetValue());
+		ActiveConfirmRequest.Reset();
 	}
 
+	ActivePopupType.Reset();
 	bPopupActive = false;
 	SetPopupModalInput(false, nullptr);
 
@@ -205,3 +346,34 @@ void UMCPPopupManagerSubsystem::HandleActivePopupResult(bool bConfirmed)
 	TryShowNext();
 }
 
+void UMCPPopupManagerSubsystem::HandleFormPopupSubmitted(const FMCPFormPopupResult& Result)
+{
+	HandleActiveFormPopupResult(Result);
+}
+
+void UMCPPopupManagerSubsystem::HandleFormPopupCancelled(const FMCPFormPopupResult& Result)
+{
+	HandleActiveFormPopupResult(Result);
+}
+
+void UMCPPopupManagerSubsystem::HandleActiveFormPopupResult(const FMCPFormPopupResult& Result)
+{
+	FMCPFormPopupRequest FinishedRequest;
+	const bool bHadActiveRequest = ActiveFormRequest.IsSet();
+	if (bHadActiveRequest)
+	{
+		FinishedRequest = MoveTemp(ActiveFormRequest.GetValue());
+		ActiveFormRequest.Reset();
+	}
+
+	ActivePopupType.Reset();
+	bPopupActive = false;
+	SetPopupModalInput(false, nullptr);
+
+	if (bHadActiveRequest && FinishedRequest.Callback.IsBound())
+	{
+		FinishedRequest.Callback.Execute(Result);
+	}
+
+	TryShowNext();
+}
