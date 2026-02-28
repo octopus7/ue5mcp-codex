@@ -85,7 +85,7 @@
                                               "brush_outline_g":  0.25,
                                               "brush_corner_radius":  16,
                                               "border_draw_as":  "rounded_box",
-                                              "brush_tint_a":  0.62
+                                              "brush_tint_a":  0.1
                                           }
                        },
                        {
@@ -98,7 +98,7 @@
                            "key":  "IdentityTintPanel",
                            "op":  "update_widget",
                            "properties":  {
-                                              "brush_tint_a":  0.04,
+                                              "brush_tint_a":  0.2,
                                               "brush_tint_g":  1,
                                               "brush_tint_b":  0.45,
                                               "border_draw_as":  "rounded_box",
