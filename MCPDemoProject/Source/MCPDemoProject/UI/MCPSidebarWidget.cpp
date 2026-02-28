@@ -64,6 +64,12 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu6Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu6Clicked);
 	}
 
+	if (MCP_Menu7Button != nullptr)
+	{
+		MCP_Menu7Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleMenu7Clicked);
+		MCP_Menu7Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu7Clicked);
+	}
+
 	if (MCP_Menu5Label != nullptr && MCP_Menu5Label->GetText().IsEmpty())
 	{
 		MCP_Menu5Label->SetText(FText::FromString(TEXT("Confirm Popup")));
@@ -74,14 +80,20 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu6Label->SetText(FText::FromString(TEXT("Form Popup")));
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s M6=%s"),
+	if (MCP_Menu7Label != nullptr && MCP_Menu7Label->GetText().IsEmpty())
+	{
+		MCP_Menu7Label->SetText(FText::FromString(TEXT("Blur Message Popup")));
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s M6=%s M7=%s"),
 		MCP_SidebarPanel != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu1Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu2Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu3Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu5Button != nullptr ? TEXT("true") : TEXT("false"),
-		MCP_Menu6Button != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_Menu6Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Menu7Button != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPSidebarWidget::HandleMenu1Clicked()
@@ -231,6 +243,37 @@ void UMCPSidebarWidget::HandleMenu6Clicked()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Form popup request rejected by popup manager."));
 		ShowDebugMessage(TEXT("Form popup request rejected"), FColor::Red);
+	}
+}
+
+void UMCPSidebarWidget::HandleMenu7Clicked()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu7 (BlurMessagePopup) clicked."));
+
+	ULocalPlayer* OwningLocalPlayer = GetOwningLocalPlayer();
+	if (OwningLocalPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open blur message popup: owning local player is null."));
+		return;
+	}
+
+	UMCPPopupManagerSubsystem* PopupManager = OwningLocalPlayer->GetSubsystem<UMCPPopupManagerSubsystem>();
+	if (PopupManager == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open blur message popup: popup manager subsystem is null."));
+		return;
+	}
+
+	FMCPMessagePopupRequest Request;
+	Request.Title = FText::FromString(TEXT("Blur Message Popup"));
+	Request.Message = FText::FromString(TEXT("This popup uses rounded background blur and dark message panel."));
+	Request.OkLabel = FText::FromString(TEXT("OK"));
+	Request.Callback = FMCPMessagePopupClosedCallback::CreateUObject(this, &UMCPSidebarWidget::HandleMenu7MessageClosed);
+
+	if (!PopupManager->RequestMessagePopup(MoveTemp(Request)))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Blur message popup request rejected by popup manager."));
+		ShowDebugMessage(TEXT("Blur message popup request rejected"), FColor::Red);
 	}
 }
 
@@ -560,6 +603,11 @@ void UMCPSidebarWidget::HandleMenu6FormResult(const FMCPFormPopupResult& Result)
 		*Result.SelectedOption);
 
 	ShowDebugMessage(Message, Result.bSubmitted ? FColor::Green : FColor::Orange);
+}
+
+void UMCPSidebarWidget::HandleMenu7MessageClosed()
+{
+	ShowDebugMessage(TEXT("Blur message popup closed"), FColor::Green);
 }
 
 void UMCPSidebarWidget::RefreshABValueDisplay()
