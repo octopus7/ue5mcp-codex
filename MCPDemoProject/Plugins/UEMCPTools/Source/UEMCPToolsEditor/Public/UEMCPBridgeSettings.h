@@ -25,11 +25,23 @@ public:
 	UPROPERTY(EditAnywhere, Config, Category = "Bridge")
 	bool bEnableBridge = true;
 
-	UPROPERTY(EditAnywhere, Config, Category = "Bridge", meta = (ClampMin = "1024", ClampMax = "65535"))
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|HTTP")
+	bool bEnableHttpBridge = true;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|HTTP", meta = (ClampMin = "1024", ClampMax = "65535"))
 	int32 Port = 17777;
 
-	UPROPERTY(EditAnywhere, Config, Category = "Bridge")
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|HTTP")
 	FString BindAddress = TEXT("127.0.0.1");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|Named Pipe")
+	bool bEnableNamedPipeBridge = true;
+
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|Named Pipe")
+	FString NamedPipeName = TEXT("UEMCPToolsBridge");
+
+	UPROPERTY(EditAnywhere, Config, Category = "Bridge|Named Pipe", meta = (ClampMin = "1024", ClampMax = "8388608"))
+	int32 NamedPipeMaxMessageBytes = 1048576;
 
 	UPROPERTY(EditAnywhere, Config, Category = "Bridge")
 	bool bRequireAuthToken = true;

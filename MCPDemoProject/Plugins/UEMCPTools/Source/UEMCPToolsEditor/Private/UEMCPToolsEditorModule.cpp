@@ -5,6 +5,7 @@
 #include "UEMCPHttpBridge.h"
 #include "UEMCPLog.h"
 #include "UEMCPMaterialTools.h"
+#include "UEMCPNamedPipeBridge.h"
 #include "UEMCPToolIds.h"
 #include "UEMCPWidgetTools.h"
 
@@ -18,11 +19,21 @@ void FUEMCPToolsEditorModule::StartupModule()
 	HttpBridge = new FUEMCPHttpBridge();
 	HttpBridge->Start();
 
+	NamedPipeBridge = new FUEMCPNamedPipeBridge();
+	NamedPipeBridge->Start();
+
 	UE_LOG(LogUEMCPTools, Log, TEXT("UEMCPToolsEditor started."));
 }
 
 void FUEMCPToolsEditorModule::ShutdownModule()
 {
+	if (NamedPipeBridge != nullptr)
+	{
+		NamedPipeBridge->Stop();
+		delete NamedPipeBridge;
+		NamedPipeBridge = nullptr;
+	}
+
 	if (HttpBridge != nullptr)
 	{
 		HttpBridge->Stop();

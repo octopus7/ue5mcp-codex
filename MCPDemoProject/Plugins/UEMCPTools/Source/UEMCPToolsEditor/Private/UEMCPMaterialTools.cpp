@@ -18,7 +18,7 @@
 
 namespace
 {
-FString ToAssetObjectPath(const FString& InPath)
+FString ToMaterialAssetObjectPath(const FString& InPath)
 {
 	if (InPath.Contains(TEXT(".")))
 	{
@@ -75,7 +75,7 @@ bool ParsePayloadObject(const FString& PayloadJson, TSharedPtr<FJsonObject>& Out
 template<typename TObjectType>
 TObjectType* LoadAsset(const FString& AssetPath)
 {
-	const FString ObjectPath = ToAssetObjectPath(AssetPath);
+	const FString ObjectPath = ToMaterialAssetObjectPath(AssetPath);
 	return LoadObject<TObjectType>(nullptr, *ObjectPath);
 }
 

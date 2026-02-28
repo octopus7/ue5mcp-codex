@@ -6,6 +6,7 @@
 
 class FUEMCPImportAutomationManager;
 class FUEMCPHttpBridge;
+class FUEMCPNamedPipeBridge;
 
 class UEMCPTOOLSEDITOR_API FUEMCPToolsEditorModule : public IModuleInterface
 {
@@ -26,4 +27,5 @@ private:
 	FMCPToolRegistry ToolRegistry;
 	FUEMCPImportAutomationManager* ImportAutomationManager = nullptr;
 	FUEMCPHttpBridge* HttpBridge = nullptr;
+	FUEMCPNamedPipeBridge* NamedPipeBridge = nullptr;
 };

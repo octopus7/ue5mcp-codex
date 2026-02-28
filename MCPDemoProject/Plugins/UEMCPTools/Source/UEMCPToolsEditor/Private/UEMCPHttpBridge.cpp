@@ -79,7 +79,7 @@ FString SerializeJsonObject(const TSharedPtr<FJsonObject>& JsonObject)
 void FUEMCPHttpBridge::Start()
 {
 	const UUEMCPBridgeSettings* Settings = GetDefault<UUEMCPBridgeSettings>();
-	if (Settings == nullptr || !Settings->bEnableBridge)
+	if (Settings == nullptr || !Settings->bEnableBridge || !Settings->bEnableHttpBridge)
 	{
 		UE_LOG(LogUEMCPTools, Log, TEXT("MCP local bridge is disabled."));
 		return;
