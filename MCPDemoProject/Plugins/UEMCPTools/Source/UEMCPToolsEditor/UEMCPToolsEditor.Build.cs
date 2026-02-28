@@ -22,6 +22,7 @@ public class UEMCPToolsEditor : ModuleRules
 			{
 				"AssetRegistry",
 				"AssetTools",
+				"BlueprintGraph",
 				"DeveloperSettings",
 				"HTTPServer",
 				"Json",

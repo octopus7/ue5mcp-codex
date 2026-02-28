@@ -17,8 +17,15 @@
 #include "Components/TextBlock.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Components/Widget.h"
+#include "EdGraph/EdGraph.h"
+#include "EdGraphSchema_K2.h"
+#include "EdGraphSchema_K2_Actions.h"
 #include "IAssetTools.h"
 #include "Kismet2/BlueprintEditorUtils.h"
+#include "Kismet2/CompilerResultsLog.h"
+#include "Kismet2/KismetEditorUtilities.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_ComponentBoundEvent.h"
 #include "Layout/Visibility.h"
 #include "Misc/PackageName.h"
 #include "Modules/ModuleManager.h"
@@ -36,7 +43,6 @@
 namespace
 {
 const TCHAR* ManagedNamePrefix = TEXT("MCP_");
-const TCHAR* EventBindingPrefix = TEXT("MCP_EVENT_");
 
 FString NormalizeKey(const FString& InValue)
 {
@@ -414,6 +420,202 @@ void ReconcileWidgetVariableGuids(UWidgetBlueprint* WidgetBlueprint)
 			It.Value() = FGuid::NewGuid();
 		}
 	}
+}
+
+UFunction* ResolveBlueprintFunction(UWidgetBlueprint* WidgetBlueprint, const FName FunctionName)
+{
+	if (WidgetBlueprint == nullptr || FunctionName.IsNone())
+	{
+		return nullptr;
+	}
+
+	if (WidgetBlueprint->SkeletonGeneratedClass != nullptr)
+	{
+		if (UFunction* FoundFunction = WidgetBlueprint->SkeletonGeneratedClass->FindFunctionByName(FunctionName))
+		{
+			return FoundFunction;
+		}
+	}
+
+	if (WidgetBlueprint->GeneratedClass != nullptr)
+	{
+		return WidgetBlueprint->GeneratedClass->FindFunctionByName(FunctionName);
+	}
+
+	return nullptr;
+}
+
+FObjectProperty* ResolveWidgetObjectProperty(UWidgetBlueprint* WidgetBlueprint, const FName WidgetName)
+{
+	if (WidgetBlueprint == nullptr || WidgetName.IsNone())
+	{
+		return nullptr;
+	}
+
+	if (WidgetBlueprint->SkeletonGeneratedClass != nullptr)
+	{
+		if (FObjectProperty* FoundProperty = FindFProperty<FObjectProperty>(WidgetBlueprint->SkeletonGeneratedClass, WidgetName))
+		{
+			return FoundProperty;
+		}
+	}
+
+	if (WidgetBlueprint->GeneratedClass != nullptr)
+	{
+		return FindFProperty<FObjectProperty>(WidgetBlueprint->GeneratedClass, WidgetName);
+	}
+
+	return nullptr;
+}
+
+UEdGraph* FindFunctionGraphByName(UWidgetBlueprint* WidgetBlueprint, const FName FunctionName)
+{
+	if (WidgetBlueprint == nullptr || FunctionName.IsNone())
+	{
+		return nullptr;
+	}
+
+	for (UEdGraph* FunctionGraph : WidgetBlueprint->FunctionGraphs)
+	{
+		if (FunctionGraph != nullptr && FunctionGraph->GetFName() == FunctionName)
+		{
+			return FunctionGraph;
+		}
+	}
+
+	return nullptr;
+}
+
+UEdGraph* FindOrCreateEventGraph(UWidgetBlueprint* WidgetBlueprint, bool bDryRun, FMCPInvokeResponse& Response)
+{
+	if (WidgetBlueprint == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("bind_event_invalid_blueprint"), TEXT("Widget blueprint is null."), FString(), true);
+		return nullptr;
+	}
+
+	if (UEdGraph* ExistingEventGraph = FBlueprintEditorUtils::FindEventGraph(WidgetBlueprint))
+	{
+		return ExistingEventGraph;
+	}
+
+	if (bDryRun)
+	{
+		return nullptr;
+	}
+
+	UEdGraph* NewEventGraph = FBlueprintEditorUtils::CreateNewGraph(
+		WidgetBlueprint,
+		UEdGraphSchema_K2::GN_EventGraph,
+		UEdGraph::StaticClass(),
+		UEdGraphSchema_K2::StaticClass());
+	if (NewEventGraph == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("bind_event_event_graph_create_failed"), TEXT("Failed to create EventGraph for widget blueprint."), WidgetBlueprint->GetPathName(), true);
+		return nullptr;
+	}
+
+	NewEventGraph->bAllowDeletion = false;
+	FBlueprintEditorUtils::AddUbergraphPage(WidgetBlueprint, NewEventGraph);
+	WidgetBlueprint->LastEditedDocuments.AddUnique(NewEventGraph);
+	return NewEventGraph;
+}
+
+bool EnsureFunctionGraph(
+	UWidgetBlueprint* WidgetBlueprint,
+	const FName FunctionName,
+	bool bDryRun,
+	FMCPInvokeResponse& Response,
+	bool& bOutCreatedFunctionGraph)
+{
+	bOutCreatedFunctionGraph = false;
+	if (WidgetBlueprint == nullptr || FunctionName.IsNone())
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("bind_event_invalid_function_name"), TEXT("function_name is invalid for bind_event."), FunctionName.ToString(), true);
+		return false;
+	}
+
+	if (FindFunctionGraphByName(WidgetBlueprint, FunctionName) != nullptr)
+	{
+		return true;
+	}
+
+	// Existing inherited/native function can be called without creating a new graph.
+	if (ResolveBlueprintFunction(WidgetBlueprint, FunctionName) != nullptr)
+	{
+		return true;
+	}
+
+	if (bDryRun)
+	{
+		return true;
+	}
+
+	if (UObject* ExistingObject = FindObject<UObject>(WidgetBlueprint, *FunctionName.ToString()))
+	{
+		if (!ExistingObject->IsA<UEdGraph>())
+		{
+			Response.Status = EMCPInvokeStatus::ExecutionError;
+			Response.AddError(
+				TEXT("bind_event_function_name_conflict"),
+				TEXT("function_name collides with an existing non-graph object."),
+				ExistingObject->GetPathName(),
+				true);
+			return false;
+		}
+	}
+
+	UEdGraph* NewFunctionGraph = FBlueprintEditorUtils::CreateNewGraph(
+		WidgetBlueprint,
+		FunctionName,
+		UEdGraph::StaticClass(),
+		UEdGraphSchema_K2::StaticClass());
+	if (NewFunctionGraph == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("bind_event_function_graph_create_failed"), TEXT("Failed to create function graph for bind_event."), FunctionName.ToString(), true);
+		return false;
+	}
+
+	FBlueprintEditorUtils::AddFunctionGraph<UClass>(WidgetBlueprint, NewFunctionGraph, true, nullptr);
+	bOutCreatedFunctionGraph = true;
+	return true;
+}
+
+bool TryCompileWidgetBlueprint(UWidgetBlueprint* WidgetBlueprint, FMCPInvokeResponse& Response)
+{
+	if (WidgetBlueprint == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("bind_event_compile_invalid_blueprint"), TEXT("Target widget blueprint is null during compile."), FString(), true);
+		return false;
+	}
+
+	FCompilerResultsLog CompileLog;
+	CompileLog.bSilentMode = true;
+	CompileLog.bLogInfoOnly = false;
+	FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint, EBlueprintCompileOptions::SkipGarbageCollection, &CompileLog);
+
+	if (CompileLog.NumErrors > 0 || WidgetBlueprint->Status == BS_Error)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		const FString CompileDetail = FString::Printf(
+			TEXT("%s (errors=%d, warnings=%d)"),
+			*WidgetBlueprint->GetPathName(),
+			CompileLog.NumErrors,
+			CompileLog.NumWarnings);
+		Response.AddError(
+			TEXT("bind_event_compile_failed"),
+			TEXT("Blueprint compile failed after bind_event wiring."),
+			CompileDetail,
+			true);
+		return false;
+	}
+
+	return true;
 }
 
 void BuildWidgetIndex(UWidgetTree* WidgetTree, TMap<FString, UWidget*>& OutByKey)
@@ -2203,13 +2405,29 @@ bool ApplyBindWidgetRefOp(
 }
 
 bool ApplyBindEventOp(
+	UWidgetBlueprint* WidgetBlueprint,
 	const FMCPWidgetPatchOperation& Operation,
 	bool bDryRun,
 	TMap<FString, UWidget*>& WidgetByKey,
 	FMCPInvokeResponse& Response,
-	TArray<TSharedPtr<FJsonValue>>& DiffEntries)
+	TArray<TSharedPtr<FJsonValue>>& DiffEntries,
+	bool& bOutCompileRequested)
 {
 	const FString Key = NormalizeKey(Operation.Key);
+	const auto FailBindEvent = [&](const TCHAR* ErrorCode, const TCHAR* ErrorMessage, const FString& ErrorDetail) -> bool
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(ErrorCode, ErrorMessage, ErrorDetail, true);
+		Response.SkippedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("failed"), FString::Printf(TEXT("%s (%s)"), ErrorMessage, ErrorCode));
+		return false;
+	};
+
+	if (WidgetBlueprint == nullptr)
+	{
+		return FailBindEvent(TEXT("bind_event_invalid_blueprint"), TEXT("Widget blueprint is null for bind_event."), FString());
+	}
+
 	UWidget* Widget = nullptr;
 	if (UWidget* const* FoundWidget = WidgetByKey.Find(Key))
 	{
@@ -2217,30 +2435,229 @@ bool ApplyBindEventOp(
 	}
 	if (Widget == nullptr)
 	{
-		Response.SkippedCount += 1;
-		AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("skipped"), TEXT("Widget key not found"));
-		return true;
+		return FailBindEvent(TEXT("bind_event_widget_not_found"), TEXT("Widget key not found for bind_event."), Key);
 	}
 
 	if (Operation.EventName.IsEmpty() || Operation.FunctionName.IsEmpty())
 	{
-		Response.SkippedCount += 1;
-		AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("skipped"), TEXT("event_name/function_name required"));
-		return true;
+		return FailBindEvent(
+			TEXT("bind_event_missing_fields"),
+			TEXT("bind_event requires both event_name and function_name."),
+			FString::Printf(TEXT("key=%s,event_name=%s,function_name=%s"), *Key, *Operation.EventName, *Operation.FunctionName));
 	}
 
-	const FString BindingTag = FString::Printf(TEXT("%s%s.%s"), EventBindingPrefix, *NormalizeKey(Operation.EventName), *NormalizeKey(Operation.FunctionName));
+	const FName EventName(*Operation.EventName);
+	const FName FunctionName(*Operation.FunctionName);
+	const FMulticastDelegateProperty* DelegateProperty = FindFProperty<FMulticastDelegateProperty>(Widget->GetClass(), EventName);
+	if (DelegateProperty == nullptr)
+	{
+		return FailBindEvent(
+			TEXT("bind_event_delegate_not_found"),
+			TEXT("event_name is not a multicast delegate on the target widget class."),
+			FString::Printf(TEXT("%s.%s"), *Widget->GetClass()->GetPathName(), *Operation.EventName));
+	}
+
+	// Ensure the widget is exposed as a Blueprint variable so component bound events can resolve the property.
 	if (!bDryRun)
 	{
 		Widget->Modify();
+		if (FBoolProperty* IsVariableProperty = FindFProperty<FBoolProperty>(UWidget::StaticClass(), TEXT("bIsVariable")))
+		{
+			IsVariableProperty->SetPropertyValue_InContainer(Widget, true);
+		}
 	}
 
+	bool bCreatedFunctionGraph = false;
+	if (!EnsureFunctionGraph(WidgetBlueprint, FunctionName, bDryRun, Response, bCreatedFunctionGraph))
+	{
+		AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("failed"), TEXT("Failed to create or resolve function graph"));
+		return false;
+	}
+
+	UEdGraph* EventGraph = FindOrCreateEventGraph(WidgetBlueprint, bDryRun, Response);
+	if (!bDryRun && EventGraph == nullptr)
+	{
+		return FailBindEvent(TEXT("bind_event_event_graph_missing"), TEXT("Failed to resolve EventGraph for bind_event."), WidgetBlueprint->GetPathName());
+	}
+
+	if (bDryRun)
+	{
+		Response.AppliedCount += 1;
+		AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("applied"), TEXT("Dry-run bind_event graph wiring validated"));
+		return true;
+	}
+
+	FObjectProperty* ComponentProperty = ResolveWidgetObjectProperty(WidgetBlueprint, Widget->GetFName());
+	if (ComponentProperty == nullptr)
+	{
+		// Refresh skeleton metadata in case bIsVariable/function graph was newly created in this invocation.
+		FCompilerResultsLog SkeletonCompileLog;
+		SkeletonCompileLog.bSilentMode = true;
+		FKismetEditorUtilities::CompileBlueprint(
+			WidgetBlueprint,
+			EBlueprintCompileOptions::RegenerateSkeletonOnly | EBlueprintCompileOptions::SkipGarbageCollection,
+			&SkeletonCompileLog);
+		ComponentProperty = ResolveWidgetObjectProperty(WidgetBlueprint, Widget->GetFName());
+	}
+	if (ComponentProperty == nullptr)
+	{
+		return FailBindEvent(
+			TEXT("bind_event_component_property_missing"),
+			TEXT("Failed to resolve widget variable property for bound event creation."),
+			Widget->GetName());
+	}
+
+	UK2Node_ComponentBoundEvent* BoundEventNode = const_cast<UK2Node_ComponentBoundEvent*>(
+		FKismetEditorUtilities::FindBoundEventForComponent(WidgetBlueprint, EventName, ComponentProperty->GetFName()));
+	bool bCreatedBoundEventNode = false;
+	if (BoundEventNode == nullptr)
+	{
+		EventGraph->Modify();
+		const FVector2D NewNodePos = EventGraph->GetGoodPlaceForNewNode();
+		BoundEventNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_ComponentBoundEvent>(
+			EventGraph,
+			NewNodePos,
+			EK2NewNodeFlags::None,
+			[ComponentProperty, DelegateProperty](UK2Node_ComponentBoundEvent* NewInstance)
+			{
+				NewInstance->InitializeComponentBoundEventParams(ComponentProperty, DelegateProperty);
+			});
+		if (BoundEventNode == nullptr)
+		{
+			return FailBindEvent(TEXT("bind_event_bound_node_create_failed"), TEXT("Failed to create Bound Event node."), Key);
+		}
+		bCreatedBoundEventNode = true;
+	}
+
+	UEdGraphPin* EventThenPin = BoundEventNode->FindPin(UEdGraphSchema_K2::PN_Then, EGPD_Output);
+	if (EventThenPin == nullptr)
+	{
+		return FailBindEvent(TEXT("bind_event_then_pin_missing"), TEXT("Bound Event node has no Then pin."), BoundEventNode->GetName());
+	}
+
+	UFunction* TargetFunction = ResolveBlueprintFunction(WidgetBlueprint, FunctionName);
+	if (TargetFunction == nullptr)
+	{
+		FCompilerResultsLog SkeletonCompileLog;
+		SkeletonCompileLog.bSilentMode = true;
+		FKismetEditorUtilities::CompileBlueprint(
+			WidgetBlueprint,
+			EBlueprintCompileOptions::RegenerateSkeletonOnly | EBlueprintCompileOptions::SkipGarbageCollection,
+			&SkeletonCompileLog);
+		TargetFunction = ResolveBlueprintFunction(WidgetBlueprint, FunctionName);
+	}
+	if (TargetFunction == nullptr)
+	{
+		return FailBindEvent(
+			TEXT("bind_event_function_unresolved"),
+			TEXT("Failed to resolve target function for call node."),
+			FunctionName.ToString());
+	}
+
+	UK2Node_CallFunction* CallFunctionNode = nullptr;
+	for (UEdGraphPin* LinkedPin : EventThenPin->LinkedTo)
+	{
+		if (LinkedPin == nullptr || LinkedPin->GetOwningNode() == nullptr)
+		{
+			continue;
+		}
+
+		if (UK2Node_CallFunction* ExistingCallNode = Cast<UK2Node_CallFunction>(LinkedPin->GetOwningNode()))
+		{
+			if (ExistingCallNode->FunctionReference.GetMemberName() == FunctionName)
+			{
+				CallFunctionNode = ExistingCallNode;
+				break;
+			}
+		}
+	}
+
+	if (CallFunctionNode == nullptr)
+	{
+		TArray<UK2Node_CallFunction*> ExistingCallNodes;
+		EventGraph->GetNodesOfClass<UK2Node_CallFunction>(ExistingCallNodes);
+		for (UK2Node_CallFunction* ExistingCallNode : ExistingCallNodes)
+		{
+			if (ExistingCallNode == nullptr || ExistingCallNode->FunctionReference.GetMemberName() != FunctionName)
+			{
+				continue;
+			}
+
+			if (UEdGraphPin* ExistingExecPin = ExistingCallNode->GetExecPin())
+			{
+				if (ExistingExecPin->LinkedTo.Num() == 0 || ExistingExecPin->LinkedTo.Contains(EventThenPin))
+				{
+					CallFunctionNode = ExistingCallNode;
+					break;
+				}
+			}
+		}
+	}
+
+	bool bCreatedCallFunctionNode = false;
+	if (CallFunctionNode == nullptr)
+	{
+		const FVector2D NewNodePos(BoundEventNode->NodePosX + 360.0f, BoundEventNode->NodePosY);
+		CallFunctionNode = FEdGraphSchemaAction_K2NewNode::SpawnNode<UK2Node_CallFunction>(
+			EventGraph,
+			NewNodePos,
+			EK2NewNodeFlags::None,
+			[TargetFunction](UK2Node_CallFunction* NewInstance)
+			{
+				NewInstance->SetFromFunction(TargetFunction);
+			});
+		if (CallFunctionNode == nullptr)
+		{
+			return FailBindEvent(TEXT("bind_event_call_node_create_failed"), TEXT("Failed to create function call node."), FunctionName.ToString());
+		}
+		bCreatedCallFunctionNode = true;
+	}
+
+	UEdGraphPin* CallExecPin = CallFunctionNode->GetExecPin();
+	if (CallExecPin == nullptr)
+	{
+		return FailBindEvent(TEXT("bind_event_call_exec_pin_missing"), TEXT("Function call node has no Exec pin."), FunctionName.ToString());
+	}
+
+	bool bConnectionAlreadyExists = EventThenPin->LinkedTo.Contains(CallExecPin) || CallExecPin->LinkedTo.Contains(EventThenPin);
+	if (!bConnectionAlreadyExists)
+	{
+		CallFunctionNode->Modify();
+
+		// If possible, insert the call node in-line while preserving existing flow links.
+		if (CallExecPin->LinkedTo.Num() == 0)
+		{
+			CallFunctionNode->AutowireNewNode(EventThenPin);
+		}
+
+		if (!EventThenPin->LinkedTo.Contains(CallExecPin))
+		{
+			const UEdGraphSchema_K2* K2Schema = Cast<UEdGraphSchema_K2>(EventGraph->GetSchema());
+			if (K2Schema == nullptr || !K2Schema->TryCreateConnection(EventThenPin, CallExecPin))
+			{
+				return FailBindEvent(
+					TEXT("bind_event_exec_connect_failed"),
+					TEXT("Failed to connect Bound Event Then pin to function call Exec pin."),
+					FunctionName.ToString());
+			}
+		}
+	}
+
+	bOutCompileRequested = true;
 	Response.AppliedCount += 1;
-	Response.AddWarning(
-		TEXT("event_binding_recorded"),
-		TEXT("Event binding request is accepted but graph-level delegate wiring is not auto-generated in M1."),
-		BindingTag);
-	AppendDiffEntry(DiffEntries, TEXT("bind_event"), Key, TEXT("applied"), TEXT("Event binding metadata recorded"));
+	AppendDiffEntry(
+		DiffEntries,
+		TEXT("bind_event"),
+		Key,
+		TEXT("applied"),
+		FString::Printf(
+			TEXT("BoundEvent=%s, Function=%s, FunctionGraph=%s, BoundNode=%s, CallNode=%s, Link=%s"),
+			*Operation.EventName,
+			*Operation.FunctionName,
+			bCreatedFunctionGraph ? TEXT("created") : TEXT("reused"),
+			bCreatedBoundEventNode ? TEXT("created") : TEXT("reused"),
+			bCreatedCallFunctionNode ? TEXT("created") : TEXT("reused"),
+			bConnectionAlreadyExists ? TEXT("existing") : TEXT("created")));
 	return true;
 }
 
@@ -2264,6 +2681,7 @@ bool ApplyOperationsToWidgetBlueprint(
 	BuildWidgetIndex(WidgetBlueprint->WidgetTree, WidgetByKey);
 
 	TArray<TSharedPtr<FJsonValue>> DiffEntries;
+	bool bBindEventCompileRequested = false;
 	for (const FMCPWidgetPatchOperation& Operation : PatchRequest.Operations)
 	{
 		const FString OpLower = Operation.Op.ToLower();
@@ -2307,7 +2725,11 @@ bool ApplyOperationsToWidgetBlueprint(
 		}
 		else if (OpLower == TEXT("bind_event"))
 		{
-			ApplyBindEventOp(Operation, bDryRun, WidgetByKey, Response, DiffEntries);
+			if (!ApplyBindEventOp(WidgetBlueprint, Operation, bDryRun, WidgetByKey, Response, DiffEntries, bBindEventCompileRequested))
+			{
+				FinalizeDiffJson(DiffEntries, Response);
+				return false;
+			}
 		}
 		else
 		{
@@ -2317,14 +2739,26 @@ bool ApplyOperationsToWidgetBlueprint(
 		}
 	}
 
-	FinalizeDiffJson(DiffEntries, Response);
 	if (!bDryRun)
 	{
 		ReconcileWidgetVariableGuids(WidgetBlueprint);
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
 		WidgetBlueprint->MarkPackageDirty();
+
+		if (bBindEventCompileRequested)
+		{
+			if (!TryCompileWidgetBlueprint(WidgetBlueprint, Response))
+			{
+				AppendDiffEntry(DiffEntries, TEXT("compile_blueprint"), PatchRequest.TargetWidgetPath, TEXT("failed"), TEXT("Blueprint compile failed after bind_event wiring"));
+				FinalizeDiffJson(DiffEntries, Response);
+				return false;
+			}
+
+			AppendDiffEntry(DiffEntries, TEXT("compile_blueprint"), PatchRequest.TargetWidgetPath, TEXT("applied"), TEXT("Blueprint compiled"));
+		}
 	}
 
+	FinalizeDiffJson(DiffEntries, Response);
 	return true;
 }
 
