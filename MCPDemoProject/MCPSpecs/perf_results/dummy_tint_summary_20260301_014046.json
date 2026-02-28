@@ -1,0 +1,427 @@
+﻿{
+    "endpoint":  "http://127.0.0.1:17777/mcp/v1/invoke",
+    "seed":  0,
+    "baseline_runs":  5,
+    "baseline_avg_http_ms":  345.93,
+    "baseline_avg_total_ms":  356.999,
+    "baseline_rows":  [
+                          {
+                              "request_id":  "baseline-1",
+                              "tool_id":  "widget.apply_ops",
+                              "dry_run":  true,
+                              "http_status":  200,
+                              "mcp_status":  "Success",
+                              "applied_count":  0,
+                              "skipped_count":  0,
+                              "warning_count":  0,
+                              "error_count":  0,
+                              "prep_ms":  0.658,
+                              "json_ms":  53.102,
+                              "http_ms":  428.517,
+                              "parse_ms":  0.583,
+                              "total_ms":  482.86,
+                              "error":  "",
+                              "response":  {
+                                               "request_id":  "baseline-1",
+                                               "status":  "Success",
+                                               "applied_count":  0,
+                                               "skipped_count":  0,
+                                               "warnings":  [
+
+                                                            ],
+                                               "errors":  [
+
+                                                          ],
+                                               "diff":  {
+                                                            "entries":  [
+
+                                                                        ]
+                                                        }
+                                           }
+                          },
+                          {
+                              "request_id":  "baseline-2",
+                              "tool_id":  "widget.apply_ops",
+                              "dry_run":  true,
+                              "http_status":  200,
+                              "mcp_status":  "Success",
+                              "applied_count":  0,
+                              "skipped_count":  0,
+                              "warning_count":  0,
+                              "error_count":  0,
+                              "prep_ms":  0.007,
+                              "json_ms":  0.083,
+                              "http_ms":  303.474,
+                              "parse_ms":  0.162,
+                              "total_ms":  303.726,
+                              "error":  "",
+                              "response":  {
+                                               "request_id":  "baseline-2",
+                                               "status":  "Success",
+                                               "applied_count":  0,
+                                               "skipped_count":  0,
+                                               "warnings":  [
+
+                                                            ],
+                                               "errors":  [
+
+                                                          ],
+                                               "diff":  {
+                                                            "entries":  [
+
+                                                                        ]
+                                                        }
+                                           }
+                          },
+                          {
+                              "request_id":  "baseline-3",
+                              "tool_id":  "widget.apply_ops",
+                              "dry_run":  true,
+                              "http_status":  200,
+                              "mcp_status":  "Success",
+                              "applied_count":  0,
+                              "skipped_count":  0,
+                              "warning_count":  0,
+                              "error_count":  0,
+                              "prep_ms":  0.005,
+                              "json_ms":  0.103,
+                              "http_ms":  332.605,
+                              "parse_ms":  0.189,
+                              "total_ms":  332.902,
+                              "error":  "",
+                              "response":  {
+                                               "request_id":  "baseline-3",
+                                               "status":  "Success",
+                                               "applied_count":  0,
+                                               "skipped_count":  0,
+                                               "warnings":  [
+
+                                                            ],
+                                               "errors":  [
+
+                                                          ],
+                                               "diff":  {
+                                                            "entries":  [
+
+                                                                        ]
+                                                        }
+                                           }
+                          },
+                          {
+                              "request_id":  "baseline-4",
+                              "tool_id":  "widget.apply_ops",
+                              "dry_run":  true,
+                              "http_status":  200,
+                              "mcp_status":  "Success",
+                              "applied_count":  0,
+                              "skipped_count":  0,
+                              "warning_count":  0,
+                              "error_count":  0,
+                              "prep_ms":  0.008,
+                              "json_ms":  0.116,
+                              "http_ms":  331.924,
+                              "parse_ms":  0.137,
+                              "total_ms":  332.185,
+                              "error":  "",
+                              "response":  {
+                                               "request_id":  "baseline-4",
+                                               "status":  "Success",
+                                               "applied_count":  0,
+                                               "skipped_count":  0,
+                                               "warnings":  [
+
+                                                            ],
+                                               "errors":  [
+
+                                                          ],
+                                               "diff":  {
+                                                            "entries":  [
+
+                                                                        ]
+                                                        }
+                                           }
+                          },
+                          {
+                              "request_id":  "baseline-5",
+                              "tool_id":  "widget.apply_ops",
+                              "dry_run":  true,
+                              "http_status":  200,
+                              "mcp_status":  "Success",
+                              "applied_count":  0,
+                              "skipped_count":  0,
+                              "warning_count":  0,
+                              "error_count":  0,
+                              "prep_ms":  0.004,
+                              "json_ms":  0.078,
+                              "http_ms":  333.13,
+                              "parse_ms":  0.111,
+                              "total_ms":  333.322,
+                              "error":  "",
+                              "response":  {
+                                               "request_id":  "baseline-5",
+                                               "status":  "Success",
+                                               "applied_count":  0,
+                                               "skipped_count":  0,
+                                               "warnings":  [
+
+                                                            ],
+                                               "errors":  [
+
+                                                          ],
+                                               "diff":  {
+                                                            "entries":  [
+
+                                                                        ]
+                                                        }
+                                           }
+                          }
+                      ],
+    "phase_summary":  [
+                          {
+                              "phase":  "dry_run",
+                              "count":  5,
+                              "avg_http_ms":  330.037,
+                              "avg_total_ms":  330.317,
+                              "est_engine_http_ms":  -15.893
+                          },
+                          {
+                              "phase":  "apply",
+                              "count":  5,
+                              "avg_http_ms":  331.945,
+                              "avg_total_ms":  332.236,
+                              "est_engine_http_ms":  -13.985
+                          }
+                      ],
+    "rows":  [
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup1",
+                     "phase":  "dry_run",
+                     "tint_r":  0.931,
+                     "tint_g":  0.961,
+                     "tint_b":  0.507,
+                     "tint_a":  0.122,
+                     "request_id":  "dry-1",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  true,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.006,
+                     "json_ms":  0.117,
+                     "http_ms":  321.187,
+                     "parse_ms":  0.204,
+                     "total_ms":  321.514,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup1",
+                     "phase":  "apply",
+                     "tint_r":  0.931,
+                     "tint_g":  0.961,
+                     "tint_b":  0.507,
+                     "tint_a":  0.122,
+                     "request_id":  "apply-1",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  false,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.007,
+                     "json_ms":  0.109,
+                     "http_ms":  327.113,
+                     "parse_ms":  0.166,
+                     "total_ms":  327.394,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup2",
+                     "phase":  "dry_run",
+                     "tint_r":  0.922,
+                     "tint_g":  0.482,
+                     "tint_b":  0.93,
+                     "tint_a":  0.348,
+                     "request_id":  "dry-2",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  true,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.004,
+                     "json_ms":  0.074,
+                     "http_ms":  332.609,
+                     "parse_ms":  0.194,
+                     "total_ms":  332.881,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup2",
+                     "phase":  "apply",
+                     "tint_r":  0.922,
+                     "tint_g":  0.482,
+                     "tint_b":  0.93,
+                     "tint_a":  0.348,
+                     "request_id":  "apply-2",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  false,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.006,
+                     "json_ms":  0.118,
+                     "http_ms":  332.61,
+                     "parse_ms":  0.161,
+                     "total_ms":  332.894,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup3",
+                     "phase":  "dry_run",
+                     "tint_r":  0.65,
+                     "tint_g":  0.656,
+                     "tint_b":  0.557,
+                     "tint_a":  0.308,
+                     "request_id":  "dry-3",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  true,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.004,
+                     "json_ms":  0.068,
+                     "http_ms":  332.861,
+                     "parse_ms":  0.199,
+                     "total_ms":  333.131,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup3",
+                     "phase":  "apply",
+                     "tint_r":  0.65,
+                     "tint_g":  0.656,
+                     "tint_b":  0.557,
+                     "tint_a":  0.308,
+                     "request_id":  "apply-3",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  false,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.007,
+                     "json_ms":  0.115,
+                     "http_ms":  332.454,
+                     "parse_ms":  0.223,
+                     "total_ms":  332.798,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup4",
+                     "phase":  "dry_run",
+                     "tint_r":  0.998,
+                     "tint_g":  0.334,
+                     "tint_b":  0.591,
+                     "tint_a":  0.169,
+                     "request_id":  "dry-4",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  true,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.005,
+                     "json_ms":  0.123,
+                     "http_ms":  331.769,
+                     "parse_ms":  0.157,
+                     "total_ms":  332.054,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup4",
+                     "phase":  "apply",
+                     "tint_r":  0.998,
+                     "tint_g":  0.334,
+                     "tint_b":  0.591,
+                     "tint_a":  0.169,
+                     "request_id":  "apply-4",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  false,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.005,
+                     "json_ms":  0.085,
+                     "http_ms":  334.15,
+                     "parse_ms":  0.144,
+                     "total_ms":  334.384,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup5",
+                     "phase":  "dry_run",
+                     "tint_r":  0.648,
+                     "tint_g":  0.584,
+                     "tint_b":  0.673,
+                     "tint_a":  0.241,
+                     "request_id":  "dry-5",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  true,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.005,
+                     "json_ms":  0.096,
+                     "http_ms":  331.759,
+                     "parse_ms":  0.147,
+                     "total_ms":  332.007,
+                     "error":  ""
+                 },
+                 {
+                     "widget":  "/Game/UI/Widget/WBP_MCPDummyPopup5",
+                     "phase":  "apply",
+                     "tint_r":  0.648,
+                     "tint_g":  0.584,
+                     "tint_b":  0.673,
+                     "tint_a":  0.241,
+                     "request_id":  "apply-5",
+                     "tool_id":  "widget.apply_ops",
+                     "dry_run":  false,
+                     "http_status":  200,
+                     "mcp_status":  "Success",
+                     "applied_count":  1,
+                     "skipped_count":  0,
+                     "warning_count":  0,
+                     "error_count":  0,
+                     "prep_ms":  0.006,
+                     "json_ms":  0.111,
+                     "http_ms":  333.397,
+                     "parse_ms":  0.196,
+                     "total_ms":  333.709,
+                     "error":  ""
+                 }
+             ]
+}
