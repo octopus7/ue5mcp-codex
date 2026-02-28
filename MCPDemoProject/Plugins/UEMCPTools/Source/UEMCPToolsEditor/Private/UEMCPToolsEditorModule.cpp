@@ -4,6 +4,7 @@
 #include "UEMCPImportTools.h"
 #include "UEMCPHttpBridge.h"
 #include "UEMCPLog.h"
+#include "UEMCPMaterialTools.h"
 #include "UEMCPToolIds.h"
 #include "UEMCPWidgetTools.h"
 
@@ -68,6 +69,27 @@ void FUEMCPToolsEditorModule::RegisterTools()
 		[](const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
 		{
 			return FUEMCPWidgetTools::ExecuteRepairTree(Request, Response);
+		});
+
+	ToolRegistry.RegisterTool(
+		UEMCPToolIds::MaterialCreateUiGradient,
+		[](const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
+		{
+			return FUEMCPMaterialTools::ExecuteCreateUiGradient(Request, Response);
+		});
+
+	ToolRegistry.RegisterTool(
+		UEMCPToolIds::MaterialInstanceCreate,
+		[](const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
+		{
+			return FUEMCPMaterialTools::ExecuteCreateMaterialInstance(Request, Response);
+		});
+
+	ToolRegistry.RegisterTool(
+		UEMCPToolIds::MaterialInstanceSetParams,
+		[](const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
+		{
+			return FUEMCPMaterialTools::ExecuteSetMaterialInstanceParams(Request, Response);
 		});
 
 	ToolRegistry.RegisterTool(

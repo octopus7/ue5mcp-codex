@@ -12,7 +12,9 @@
 - `widget_patch.dummy_popup4.sample.json`: sample payload for `WBP_MCPDummyPopup4`
 - `widget_patch.dummy_popup5.sample.json`: sample payload for `WBP_MCPDummyPopup5`
 - `widget_repair.sample.json`: example payload for `widget.repair_tree`
-- `apply_dummy_popup_patches.ps1`: helper script that invokes the sidebar + dummy popup patch specs via local bridge
+- `material_create_ui_gradient.sample.json`: sample payload for `material.create_ui_gradient`
+- `material_instance_create.sample.json`: sample payload for `material_instance.create`
+- `material_instance_set_params.sample.json`: sample payload for `material_instance.set_params`
 
 Widget patch operations support:
 
@@ -31,10 +33,16 @@ Binding policy:
 `update_widget` style properties:
 
 - `UTextBlock`: `text_color_(r|g|b|a)`, `text_justification`
-- `UBorder`: `border_draw_as`, `brush_tint_(r|g|b|a)`, `brush_corner_radius`, `brush_outline_(r|g|b|a)`, `brush_outline_width`
+- `UBorder`: `border_draw_as`, `brush_resource_path` (`brush_image_path` alias), `brush_tint_(r|g|b|a)`, `brush_corner_radius`, `brush_outline_(r|g|b|a)`, `brush_outline_width`
 - `UButton`: `button_draw_as`, `button_corner_radius`, `button_outline_(r|g|b|a)`, `button_outline_width`, `button_normal_(r|g|b|a)`, `button_hovered_(r|g|b|a)`, `button_pressed_(r|g|b|a)`
 - `USlider`: `slider_min_value`, `slider_max_value`, `slider_value`, `slider_step_size`
 - Slot layout (`slot_*`) supports: `UVerticalBoxSlot`, `UHorizontalBoxSlot`, `UBorderSlot`, `UCanvasPanelSlot`
+
+Material tools:
+
+- `material.create_ui_gradient`: create/rebuild a UI-domain vertical gradient master material (`TopColor`, `BottomColor`, `TopAlpha`, `BottomAlpha`)
+- `material_instance.create`: create a material instance (or update parent if it already exists)
+- `material_instance.set_params`: apply scalar/vector parameter overrides to a material instance
 
 Style source of truth policy:
 

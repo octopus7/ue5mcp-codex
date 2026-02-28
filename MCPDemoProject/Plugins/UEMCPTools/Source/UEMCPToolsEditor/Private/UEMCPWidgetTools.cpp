@@ -60,6 +60,17 @@ FString ToWidgetObjectPath(const FString& InPath)
 	return FString::Printf(TEXT("%s.%s"), *InPath, *AssetName);
 }
 
+FString ToAssetObjectPath(const FString& InPath)
+{
+	if (InPath.Contains(TEXT(".")))
+	{
+		return InPath;
+	}
+
+	const FString AssetName = FPackageName::GetLongPackageAssetName(InPath);
+	return FString::Printf(TEXT("%s.%s"), *InPath, *AssetName);
+}
+
 FString ToWidgetPackagePath(const FString& InPath)
 {
 	if (!InPath.Contains(TEXT(".")))
@@ -1427,6 +1438,39 @@ bool ApplyUpdateWidgetOp(
 			else
 			{
 				Response.AddWarning(TEXT("unknown_border_draw_as"), TEXT("Unrecognized border_draw_as value."), *DrawAsValue);
+			}
+		}
+
+		const FString* BrushResourcePath = Operation.StringProps.Find(TEXT("brush_resource_path"));
+		if (BrushResourcePath == nullptr)
+		{
+			BrushResourcePath = Operation.StringProps.Find(TEXT("brush_image_path"));
+		}
+		if (BrushResourcePath != nullptr)
+		{
+			const FString NormalizedPath = BrushResourcePath->TrimStartAndEnd();
+			if (NormalizedPath.IsEmpty())
+			{
+				BorderBrush.SetResourceObject(nullptr);
+				bBorderBrushChanged = true;
+			}
+			else
+			{
+				const FString BrushObjectPath = ToAssetObjectPath(NormalizedPath);
+				UObject* ResourceObject = LoadObject<UObject>(nullptr, *BrushObjectPath);
+				if (ResourceObject != nullptr)
+				{
+					BorderBrush.SetResourceObject(ResourceObject);
+					if (BorderBrush.DrawAs == ESlateBrushDrawType::NoDrawType)
+					{
+						BorderBrush.DrawAs = ESlateBrushDrawType::Image;
+					}
+					bBorderBrushChanged = true;
+				}
+				else
+				{
+					Response.AddWarning(TEXT("invalid_brush_resource_path"), TEXT("Failed to load brush resource asset."), NormalizedPath);
+				}
 			}
 		}
 

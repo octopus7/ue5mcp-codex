@@ -1,0 +1,21 @@
+{
+  "target_instance_path": "/Game/UI/Materials/MI_UI_VGradient_Dummy1",
+  "scalar_params": {
+    "TopAlpha": 0.2,
+    "BottomAlpha": 0.0
+  },
+  "vector_params": {
+    "TopColor": {
+      "r": 1.0,
+      "g": 0.25,
+      "b": 0.25,
+      "a": 1.0
+    },
+    "BottomColor": {
+      "r": 1.0,
+      "g": 0.25,
+      "b": 0.25,
+      "a": 1.0
+    }
+  }
+}

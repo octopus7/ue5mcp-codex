@@ -1,0 +1,15 @@
+{
+  "target_material_path": "/Game/UI/Materials/M_UI_VGradient",
+  "blend_mode": "translucent",
+  "overwrite_graph": true,
+  "top_color_r": 1.0,
+  "top_color_g": 0.25,
+  "top_color_b": 0.25,
+  "top_color_a": 1.0,
+  "bottom_color_r": 1.0,
+  "bottom_color_g": 0.25,
+  "bottom_color_b": 0.25,
+  "bottom_color_a": 1.0,
+  "top_alpha": 0.2,
+  "bottom_alpha": 0.0
+}
