@@ -3,6 +3,7 @@
   "mode": "patch",
   "target_widget_path": "/Game/UI/Generated/WBP_Inventory",
   "parent_class_path": "/Script/UMG.UserWidget",
+  "save_on_success": true,
   "operations": [
     {
       "op": "add_widget",

@@ -22,6 +22,7 @@ Widget patch operations support:
 - `reparent_widget` with optional `properties.insert_index` (or top-level `insert_index`)
 - `reorder_widget` with required `properties.insert_index` (or top-level `insert_index` / `new_index`)
 - Existing ops: `update_widget`, `remove_widget`, `bind_widget_ref`, `bind_event`
+- Top-level `save_on_success` (`bool`, default `false`) saves the target WBP package after a successful non-dry-run invoke
 
 Binding policy:
 
@@ -60,3 +61,5 @@ Request envelope for local bridge:
   "payload": {}
 }
 ```
+
+`widget.repair_tree` payload also supports top-level `save_on_success` with the same behavior.

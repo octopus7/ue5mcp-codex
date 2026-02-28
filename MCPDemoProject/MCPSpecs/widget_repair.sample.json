@@ -1,5 +1,6 @@
 {
   "target_widget_path": "/Game/UI/Generated/WBP_Inventory",
+  "save_on_success": true,
   "expected_parents": {
     "btn_confirm": "root_panel"
   }

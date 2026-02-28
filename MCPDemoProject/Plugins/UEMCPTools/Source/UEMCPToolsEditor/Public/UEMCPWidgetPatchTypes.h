@@ -24,5 +24,6 @@ struct FMCPWidgetPatchRequest
 	FString Mode;
 	FString TargetWidgetPath;
 	FString ParentClassPath;
+	bool bSaveOnSuccess = false;
 	TArray<FMCPWidgetPatchOperation> Operations;
 };

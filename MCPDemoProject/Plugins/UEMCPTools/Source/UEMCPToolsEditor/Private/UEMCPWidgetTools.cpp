@@ -22,6 +22,8 @@
 #include "Layout/Visibility.h"
 #include "Misc/PackageName.h"
 #include "Modules/ModuleManager.h"
+#include "UObject/Package.h"
+#include "UObject/SavePackage.h"
 #include "UObject/UnrealType.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -473,6 +475,98 @@ void FinalizeDiffJson(const TArray<TSharedPtr<FJsonValue>>& DiffEntries, FMCPInv
 	FJsonSerializer::Serialize(Root.ToSharedRef(), Writer);
 }
 
+void AppendDiffEntryToResponse(FMCPInvokeResponse& Response, const FString& Op, const FString& Key, const FString& Result, const FString& Detail)
+{
+	TArray<TSharedPtr<FJsonValue>> DiffEntries;
+	if (!Response.DiffJson.IsEmpty())
+	{
+		TSharedPtr<FJsonObject> ExistingRoot;
+		const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Response.DiffJson);
+		if (FJsonSerializer::Deserialize(Reader, ExistingRoot) && ExistingRoot.IsValid())
+		{
+			const TArray<TSharedPtr<FJsonValue>>* ExistingEntries = nullptr;
+			if (ExistingRoot->TryGetArrayField(TEXT("entries"), ExistingEntries) && ExistingEntries != nullptr)
+			{
+				DiffEntries = *ExistingEntries;
+			}
+		}
+	}
+
+	AppendDiffEntry(DiffEntries, Op, Key, Result, Detail);
+	FinalizeDiffJson(DiffEntries, Response);
+}
+
+bool TrySaveWidgetBlueprintPackage(
+	UWidgetBlueprint* WidgetBlueprint,
+	const FString& TargetWidgetPath,
+	const bool bSaveOnSuccess,
+	const bool bDryRun,
+	FMCPInvokeResponse& Response)
+{
+	if (!bSaveOnSuccess)
+	{
+		return true;
+	}
+
+	if (bDryRun)
+	{
+		Response.AddWarning(TEXT("save_skipped_dry_run"), TEXT("save_on_success was requested but dry_run is true."), TargetWidgetPath);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("skipped"), TEXT("Dry-run requested"));
+		return true;
+	}
+
+	if (WidgetBlueprint == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("save_failed"), TEXT("Target widget blueprint is null."), TargetWidgetPath, true);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("failed"), TEXT("Target widget blueprint is null"));
+		return false;
+	}
+
+	UPackage* Package = WidgetBlueprint->GetOutermost();
+	if (Package == nullptr)
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("save_failed"), TEXT("Failed to resolve package for target widget blueprint."), TargetWidgetPath, true);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("failed"), TEXT("Package is null"));
+		return false;
+	}
+
+	const FString PackagePath = Package->GetName();
+	if (!Package->IsDirty())
+	{
+		Response.AddWarning(TEXT("save_skipped_not_dirty"), TEXT("Target widget package is not dirty; save skipped."), PackagePath);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("skipped"), TEXT("Package not dirty"));
+		return true;
+	}
+
+	FString PackageFilename;
+	if (!FPackageName::TryConvertLongPackageNameToFilename(PackagePath, PackageFilename, FPackageName::GetAssetPackageExtension()))
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("save_failed"), TEXT("Failed to convert package path to filename."), PackagePath, true);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("failed"), TEXT("Failed to convert package path to filename"));
+		return false;
+	}
+
+	FSavePackageArgs SaveArgs;
+	SaveArgs.TopLevelFlags = RF_Public | RF_Standalone;
+	SaveArgs.SaveFlags = SAVE_None;
+	SaveArgs.Error = GError;
+	SaveArgs.bSlowTask = false;
+
+	if (!UPackage::SavePackage(Package, WidgetBlueprint, *PackageFilename, SaveArgs))
+	{
+		Response.Status = EMCPInvokeStatus::ExecutionError;
+		Response.AddError(TEXT("save_failed"), TEXT("UPackage::SavePackage failed for target widget package."), PackageFilename, true);
+		AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("failed"), TEXT("UPackage::SavePackage failed"));
+		return false;
+	}
+
+	AppendDiffEntryToResponse(Response, TEXT("save_package"), TargetWidgetPath, TEXT("applied"), TEXT("Package saved"));
+	return true;
+}
+
 bool ParsePatchRequest(const FString& PayloadJson, FMCPWidgetPatchRequest& OutRequest, FMCPInvokeResponse& Response)
 {
 	TSharedPtr<FJsonObject> RootObject;
@@ -488,6 +582,7 @@ bool ParsePatchRequest(const FString& PayloadJson, FMCPWidgetPatchRequest& OutRe
 	OutRequest.Mode = ReadStringField(RootObject, TEXT("mode"));
 	OutRequest.TargetWidgetPath = ReadStringField(RootObject, TEXT("target_widget_path"));
 	OutRequest.ParentClassPath = ReadStringField(RootObject, TEXT("parent_class_path"));
+	RootObject->TryGetBoolField(TEXT("save_on_success"), OutRequest.bSaveOnSuccess);
 
 	if (OutRequest.SchemaVersion.IsEmpty())
 	{
@@ -2237,8 +2332,10 @@ bool ParseRepairRequest(
 	const FString& PayloadJson,
 	FString& OutTargetWidgetPath,
 	TMap<FString, FString>& OutExpectedParents,
+	bool& OutSaveOnSuccess,
 	FMCPInvokeResponse& Response)
 {
+	OutSaveOnSuccess = false;
 	TSharedPtr<FJsonObject> RootObject;
 	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(PayloadJson);
 	if (!FJsonSerializer::Deserialize(Reader, RootObject) || !RootObject.IsValid())
@@ -2249,6 +2346,7 @@ bool ParseRepairRequest(
 	}
 
 	RootObject->TryGetStringField(TEXT("target_widget_path"), OutTargetWidgetPath);
+	RootObject->TryGetBoolField(TEXT("save_on_success"), OutSaveOnSuccess);
 	if (OutTargetWidgetPath.IsEmpty())
 	{
 		Response.Status = EMCPInvokeStatus::ValidationError;
@@ -2292,7 +2390,7 @@ bool FUEMCPWidgetTools::ExecuteCreateOrPatch(const FMCPInvokeRequest& Request, F
 			TArray<TSharedPtr<FJsonValue>> DiffEntries;
 			AppendDiffEntry(DiffEntries, TEXT("create_widget_blueprint"), TEXT(""), TEXT("applied"), TEXT("Dry-run create"));
 			FinalizeDiffJson(DiffEntries, Response);
-			return true;
+			return TrySaveWidgetBlueprintPackage(nullptr, PatchRequest.TargetWidgetPath, PatchRequest.bSaveOnSuccess, Request.bDryRun, Response);
 		}
 
 		WidgetBlueprint = CreateWidgetBlueprintAsset(PatchRequest, Response);
@@ -2302,7 +2400,12 @@ bool FUEMCPWidgetTools::ExecuteCreateOrPatch(const FMCPInvokeRequest& Request, F
 		}
 	}
 
-	return ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, false);
+	if (!ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, false))
+	{
+		return false;
+	}
+
+	return TrySaveWidgetBlueprintPackage(WidgetBlueprint, PatchRequest.TargetWidgetPath, PatchRequest.bSaveOnSuccess, Request.bDryRun, Response);
 }
 
 bool FUEMCPWidgetTools::ExecuteApplyOps(const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
@@ -2321,7 +2424,12 @@ bool FUEMCPWidgetTools::ExecuteApplyOps(const FMCPInvokeRequest& Request, FMCPIn
 		return false;
 	}
 
-	return ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, false);
+	if (!ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, false))
+	{
+		return false;
+	}
+
+	return TrySaveWidgetBlueprintPackage(WidgetBlueprint, PatchRequest.TargetWidgetPath, PatchRequest.bSaveOnSuccess, Request.bDryRun, Response);
 }
 
 bool FUEMCPWidgetTools::ExecuteBindRefsAndEvents(const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
@@ -2340,14 +2448,20 @@ bool FUEMCPWidgetTools::ExecuteBindRefsAndEvents(const FMCPInvokeRequest& Reques
 		return false;
 	}
 
-	return ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, true);
+	if (!ApplyOperationsToWidgetBlueprint(WidgetBlueprint, PatchRequest, Request.bDryRun, Response, true))
+	{
+		return false;
+	}
+
+	return TrySaveWidgetBlueprintPackage(WidgetBlueprint, PatchRequest.TargetWidgetPath, PatchRequest.bSaveOnSuccess, Request.bDryRun, Response);
 }
 
 bool FUEMCPWidgetTools::ExecuteRepairTree(const FMCPInvokeRequest& Request, FMCPInvokeResponse& Response)
 {
 	FString TargetWidgetPath;
 	TMap<FString, FString> ExpectedParents;
-	if (!ParseRepairRequest(Request.PayloadJson, TargetWidgetPath, ExpectedParents, Response))
+	bool bSaveOnSuccess = false;
+	if (!ParseRepairRequest(Request.PayloadJson, TargetWidgetPath, ExpectedParents, bSaveOnSuccess, Response))
 	{
 		return false;
 	}
@@ -2428,5 +2542,5 @@ bool FUEMCPWidgetTools::ExecuteRepairTree(const FMCPInvokeRequest& Request, FMCP
 	}
 
 	FinalizeDiffJson(DiffEntries, Response);
-	return true;
+	return TrySaveWidgetBlueprintPackage(WidgetBlueprint, TargetWidgetPath, bSaveOnSuccess, Request.bDryRun, Response);
 }
