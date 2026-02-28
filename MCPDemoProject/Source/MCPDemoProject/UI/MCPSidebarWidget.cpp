@@ -1,6 +1,7 @@
 #include "MCPSidebarWidget.h"
 
 #include "MCPABValuePopupWidget.h"
+#include "MCPDummyPopupWidget.h"
 #include "MCPMessagePopupWidget.h"
 #include "MCPPopupManagerSubsystem.h"
 #include "MCPScrollGridPopupWidget.h"
@@ -13,6 +14,20 @@
 #include "GameFramework/PlayerController.h"
 #include "UObject/SoftObjectPath.h"
 
+namespace
+{
+constexpr int32 DummyPopupCount = 5;
+
+const TCHAR* DummyPopupClassPaths[DummyPopupCount] =
+{
+	TEXT("/Game/UI/Widget/WBP_MCPDummyPopup1.WBP_MCPDummyPopup1_C"),
+	TEXT("/Game/UI/Widget/WBP_MCPDummyPopup2.WBP_MCPDummyPopup2_C"),
+	TEXT("/Game/UI/Widget/WBP_MCPDummyPopup3.WBP_MCPDummyPopup3_C"),
+	TEXT("/Game/UI/Widget/WBP_MCPDummyPopup4.WBP_MCPDummyPopup4_C"),
+	TEXT("/Game/UI/Widget/WBP_MCPDummyPopup5.WBP_MCPDummyPopup5_C")
+};
+}
+
 void UMCPSidebarWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
@@ -22,6 +37,14 @@ void UMCPSidebarWidget::NativeConstruct()
 	ResolveABValuePopupClass();
 	ResolveScrollGridPopupClass();
 	ResolveScrollTilePopupClass();
+	if (DummyPopupWidgetClasses.Num() != DummyPopupCount)
+	{
+		DummyPopupWidgetClasses.SetNum(DummyPopupCount);
+	}
+	if (DummyPopupWidgetInstances.Num() != DummyPopupCount)
+	{
+		DummyPopupWidgetInstances.SetNum(DummyPopupCount);
+	}
 
 	DisplayedA = Menu2InitialA;
 	DisplayedB = Menu2InitialB;
@@ -70,6 +93,36 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu7Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu7Clicked);
 	}
 
+	if (MCP_Dummy1Button != nullptr)
+	{
+		MCP_Dummy1Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleDummy1Clicked);
+		MCP_Dummy1Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleDummy1Clicked);
+	}
+
+	if (MCP_Dummy2Button != nullptr)
+	{
+		MCP_Dummy2Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleDummy2Clicked);
+		MCP_Dummy2Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleDummy2Clicked);
+	}
+
+	if (MCP_Dummy3Button != nullptr)
+	{
+		MCP_Dummy3Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleDummy3Clicked);
+		MCP_Dummy3Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleDummy3Clicked);
+	}
+
+	if (MCP_Dummy4Button != nullptr)
+	{
+		MCP_Dummy4Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleDummy4Clicked);
+		MCP_Dummy4Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleDummy4Clicked);
+	}
+
+	if (MCP_Dummy5Button != nullptr)
+	{
+		MCP_Dummy5Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleDummy5Clicked);
+		MCP_Dummy5Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleDummy5Clicked);
+	}
+
 	if (MCP_Menu5Label != nullptr && MCP_Menu5Label->GetText().IsEmpty())
 	{
 		MCP_Menu5Label->SetText(FText::FromString(TEXT("Confirm Popup")));
@@ -85,7 +138,32 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu7Label->SetText(FText::FromString(TEXT("Blur Message Popup")));
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s M6=%s M7=%s"),
+	if (MCP_Dummy1Label != nullptr && MCP_Dummy1Label->GetText().IsEmpty())
+	{
+		MCP_Dummy1Label->SetText(FText::FromString(TEXT("Dummy 1")));
+	}
+
+	if (MCP_Dummy2Label != nullptr && MCP_Dummy2Label->GetText().IsEmpty())
+	{
+		MCP_Dummy2Label->SetText(FText::FromString(TEXT("Dummy 2")));
+	}
+
+	if (MCP_Dummy3Label != nullptr && MCP_Dummy3Label->GetText().IsEmpty())
+	{
+		MCP_Dummy3Label->SetText(FText::FromString(TEXT("Dummy 3")));
+	}
+
+	if (MCP_Dummy4Label != nullptr && MCP_Dummy4Label->GetText().IsEmpty())
+	{
+		MCP_Dummy4Label->SetText(FText::FromString(TEXT("Dummy 4")));
+	}
+
+	if (MCP_Dummy5Label != nullptr && MCP_Dummy5Label->GetText().IsEmpty())
+	{
+		MCP_Dummy5Label->SetText(FText::FromString(TEXT("Dummy 5")));
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s M6=%s M7=%s D1=%s D2=%s D3=%s D4=%s D5=%s"),
 		MCP_SidebarPanel != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu1Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu2Button != nullptr ? TEXT("true") : TEXT("false"),
@@ -93,7 +171,12 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu5Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu6Button != nullptr ? TEXT("true") : TEXT("false"),
-		MCP_Menu7Button != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_Menu7Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Dummy1Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Dummy2Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Dummy3Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Dummy4Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Dummy5Button != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPSidebarWidget::HandleMenu1Clicked()
@@ -277,6 +360,31 @@ void UMCPSidebarWidget::HandleMenu7Clicked()
 	}
 }
 
+void UMCPSidebarWidget::HandleDummy1Clicked()
+{
+	OpenDummyPopupByIndex(1);
+}
+
+void UMCPSidebarWidget::HandleDummy2Clicked()
+{
+	OpenDummyPopupByIndex(2);
+}
+
+void UMCPSidebarWidget::HandleDummy3Clicked()
+{
+	OpenDummyPopupByIndex(3);
+}
+
+void UMCPSidebarWidget::HandleDummy4Clicked()
+{
+	OpenDummyPopupByIndex(4);
+}
+
+void UMCPSidebarWidget::HandleDummy5Clicked()
+{
+	OpenDummyPopupByIndex(5);
+}
+
 void UMCPSidebarWidget::ResolveMessagePopupClass()
 {
 	if (MessagePopupWidgetClass != nullptr)
@@ -381,6 +489,134 @@ void UMCPSidebarWidget::ResolveScrollTilePopupClass()
 		ScrollTilePopupWidgetClass = UMCPScrollTilePopupWidget::StaticClass();
 		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Scroll-tile popup widget class not found at %s. Falling back to native class."), PopupClassPath);
 	}
+}
+
+void UMCPSidebarWidget::OpenDummyPopupByIndex(int32 PopupIndex)
+{
+	if (PopupIndex < 1 || PopupIndex > DummyPopupCount)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Invalid dummy popup index: %d"), PopupIndex);
+		return;
+	}
+
+	if (ULocalPlayer* OwningLocalPlayer = GetOwningLocalPlayer())
+	{
+		if (UMCPPopupManagerSubsystem* PopupManager = OwningLocalPlayer->GetSubsystem<UMCPPopupManagerSubsystem>())
+		{
+			if (PopupManager->IsAnyPopupActive())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Dummy popup %d blocked while popup manager has active modal."), PopupIndex);
+				ShowDebugMessage(TEXT("Close active manager popup first"), FColor::Orange);
+				return;
+			}
+		}
+	}
+
+	UMCPDummyPopupWidget* PopupWidget = GetOrCreateDummyPopup(PopupIndex);
+	if (PopupWidget == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open dummy popup %d: widget creation failed."), PopupIndex);
+		return;
+	}
+
+	if (!PopupWidget->IsInViewport())
+	{
+		PopupWidget->AddToViewport(1150);
+	}
+
+	PopupWidget->OpenPopup(
+		FText::FromString(FString::Printf(TEXT("Dummy %d"), PopupIndex)),
+		FText::FromString(FString::Printf(TEXT("Consistency test popup %d"), PopupIndex)));
+	SetPopupModalInput(true, PopupWidget);
+}
+
+void UMCPSidebarWidget::ResolveDummyPopupClass(int32 PopupIndex)
+{
+	if (PopupIndex < 1 || PopupIndex > DummyPopupCount)
+	{
+		return;
+	}
+
+	if (DummyPopupWidgetClasses.Num() != DummyPopupCount)
+	{
+		DummyPopupWidgetClasses.SetNum(DummyPopupCount);
+	}
+
+	const int32 ArrayIndex = PopupIndex - 1;
+	if (DummyPopupWidgetClasses[ArrayIndex] != nullptr)
+	{
+		return;
+	}
+
+	const TCHAR* PopupClassPath = DummyPopupClassPaths[ArrayIndex];
+	UClass* LoadedClass = LoadClass<UMCPDummyPopupWidget>(nullptr, PopupClassPath);
+	if (LoadedClass == nullptr)
+	{
+		const FSoftClassPath SoftClassPath(PopupClassPath);
+		LoadedClass = SoftClassPath.TryLoadClass<UMCPDummyPopupWidget>();
+	}
+
+	if (LoadedClass != nullptr)
+	{
+		DummyPopupWidgetClasses[ArrayIndex] = LoadedClass;
+		UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Loaded dummy popup widget class[%d]: %s"), PopupIndex, *GetNameSafe(LoadedClass));
+	}
+	else
+	{
+		DummyPopupWidgetClasses[ArrayIndex] = UMCPDummyPopupWidget::StaticClass();
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Dummy popup widget class not found at %s. Falling back to native class."), PopupClassPath);
+	}
+}
+
+UMCPDummyPopupWidget* UMCPSidebarWidget::GetOrCreateDummyPopup(int32 PopupIndex)
+{
+	if (PopupIndex < 1 || PopupIndex > DummyPopupCount)
+	{
+		return nullptr;
+	}
+
+	if (DummyPopupWidgetInstances.Num() != DummyPopupCount)
+	{
+		DummyPopupWidgetInstances.SetNum(DummyPopupCount);
+	}
+	if (DummyPopupWidgetClasses.Num() != DummyPopupCount)
+	{
+		DummyPopupWidgetClasses.SetNum(DummyPopupCount);
+	}
+
+	const int32 ArrayIndex = PopupIndex - 1;
+	if (DummyPopupWidgetInstances[ArrayIndex] != nullptr)
+	{
+		return DummyPopupWidgetInstances[ArrayIndex];
+	}
+
+	ResolveDummyPopupClass(PopupIndex);
+	if (DummyPopupWidgetClasses[ArrayIndex] == nullptr)
+	{
+		return nullptr;
+	}
+
+	APlayerController* OwningPlayer = GetOwningPlayer();
+	if (OwningPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] GetOwningPlayer returned null while creating dummy popup %d."), PopupIndex);
+		return nullptr;
+	}
+
+	DummyPopupWidgetInstances[ArrayIndex] = CreateWidget<UMCPDummyPopupWidget>(OwningPlayer, DummyPopupWidgetClasses[ArrayIndex]);
+	if (DummyPopupWidgetInstances[ArrayIndex] != nullptr)
+	{
+		DummyPopupWidgetInstances[ArrayIndex]->OnClosed.RemoveAll(this);
+		DummyPopupWidgetInstances[ArrayIndex]->OnClosed.AddUObject(this, &UMCPSidebarWidget::HandleAnyDummyPopupClosed);
+	}
+
+	return DummyPopupWidgetInstances[ArrayIndex];
+}
+
+void UMCPSidebarWidget::HandleAnyDummyPopupClosed()
+{
+	SetPopupModalInput(false, nullptr);
+	ShowDebugMessage(TEXT("Dummy popup closed"), FColor::Green);
 }
 
 UMCPMessagePopupWidget* UMCPSidebarWidget::GetOrCreateMessagePopup()

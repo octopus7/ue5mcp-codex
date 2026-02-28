@@ -1,0 +1,323 @@
+{
+    "schema_version":  "1.0",
+    "mode":  "patch",
+    "target_widget_path":  "/Game/UI/Widget/WBP_MCPSidebar",
+    "parent_class_path":  "/Script/MCPDemoProject.MCPSidebarWidget",
+    "operations":  [
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "DummyDivider",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Border"
+                       },
+                       {
+                           "key":  "DummyDivider",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "brush_tint_g":  0.7,
+                                              "slot_padding_top":  12,
+                                              "brush_tint_r":  0.65,
+                                              "brush_tint_b":  0.76,
+                                              "brush_corner_radius":  4,
+                                              "slot_padding_bottom":  10,
+                                              "brush_tint_a":  0.22,
+                                              "border_draw_as":  "rounded_box"
+                                          }
+                       },
+                       {
+                           "key":  "DummyDivider",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "Dummy1Button",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "Dummy1Button",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_hovered_a":  1,
+                                              "button_hovered_b":  0.28,
+                                              "button_hovered_r":  0.2,
+                                              "button_normal_a":  0.95,
+                                              "button_outline_b":  0.29,
+                                              "button_normal_g":  0.16,
+                                              "button_corner_radius":  10,
+                                              "slot_padding_bottom":  6,
+                                              "button_normal_b":  0.2,
+                                              "button_pressed_g":  0.14,
+                                              "button_draw_as":  "rounded_box",
+                                              "button_normal_r":  0.14,
+                                              "button_outline_g":  0.25,
+                                              "button_outline_r":  0.23,
+                                              "button_pressed_a":  1,
+                                              "button_pressed_r":  0.12,
+                                              "button_hovered_g":  0.23,
+                                              "button_outline_width":  1,
+                                              "button_outline_a":  1,
+                                              "button_pressed_b":  0.18
+                                          }
+                       },
+                       {
+                           "parent_key":  "Dummy1Button",
+                           "key":  "Dummy1Label",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "Dummy1Label",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.95,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy 1",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.94,
+                                              "text_color_b":  0.98
+                                          }
+                       },
+                       {
+                           "key":  "Dummy1Button",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "Dummy1Label",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "Dummy2Button",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "Dummy2Button",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_hovered_a":  1,
+                                              "button_hovered_b":  0.28,
+                                              "button_hovered_r":  0.2,
+                                              "button_normal_a":  0.95,
+                                              "button_outline_b":  0.29,
+                                              "button_normal_g":  0.16,
+                                              "button_corner_radius":  10,
+                                              "slot_padding_bottom":  6,
+                                              "button_normal_b":  0.2,
+                                              "button_pressed_g":  0.14,
+                                              "button_draw_as":  "rounded_box",
+                                              "button_normal_r":  0.14,
+                                              "button_outline_g":  0.25,
+                                              "button_outline_r":  0.23,
+                                              "button_pressed_a":  1,
+                                              "button_pressed_r":  0.12,
+                                              "button_hovered_g":  0.23,
+                                              "button_outline_width":  1,
+                                              "button_outline_a":  1,
+                                              "button_pressed_b":  0.18
+                                          }
+                       },
+                       {
+                           "parent_key":  "Dummy2Button",
+                           "key":  "Dummy2Label",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "Dummy2Label",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.95,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy 2",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.94,
+                                              "text_color_b":  0.98
+                                          }
+                       },
+                       {
+                           "key":  "Dummy2Button",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "Dummy2Label",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "Dummy3Button",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "Dummy3Button",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_hovered_a":  1,
+                                              "button_hovered_b":  0.28,
+                                              "button_hovered_r":  0.2,
+                                              "button_normal_a":  0.95,
+                                              "button_outline_b":  0.29,
+                                              "button_normal_g":  0.16,
+                                              "button_corner_radius":  10,
+                                              "slot_padding_bottom":  6,
+                                              "button_normal_b":  0.2,
+                                              "button_pressed_g":  0.14,
+                                              "button_draw_as":  "rounded_box",
+                                              "button_normal_r":  0.14,
+                                              "button_outline_g":  0.25,
+                                              "button_outline_r":  0.23,
+                                              "button_pressed_a":  1,
+                                              "button_pressed_r":  0.12,
+                                              "button_hovered_g":  0.23,
+                                              "button_outline_width":  1,
+                                              "button_outline_a":  1,
+                                              "button_pressed_b":  0.18
+                                          }
+                       },
+                       {
+                           "parent_key":  "Dummy3Button",
+                           "key":  "Dummy3Label",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "Dummy3Label",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.95,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy 3",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.94,
+                                              "text_color_b":  0.98
+                                          }
+                       },
+                       {
+                           "key":  "Dummy3Button",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "Dummy3Label",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "Dummy4Button",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "Dummy4Button",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_hovered_a":  1,
+                                              "button_hovered_b":  0.28,
+                                              "button_hovered_r":  0.2,
+                                              "button_normal_a":  0.95,
+                                              "button_outline_b":  0.29,
+                                              "button_normal_g":  0.16,
+                                              "button_corner_radius":  10,
+                                              "slot_padding_bottom":  6,
+                                              "button_normal_b":  0.2,
+                                              "button_pressed_g":  0.14,
+                                              "button_draw_as":  "rounded_box",
+                                              "button_normal_r":  0.14,
+                                              "button_outline_g":  0.25,
+                                              "button_outline_r":  0.23,
+                                              "button_pressed_a":  1,
+                                              "button_pressed_r":  0.12,
+                                              "button_hovered_g":  0.23,
+                                              "button_outline_width":  1,
+                                              "button_outline_a":  1,
+                                              "button_pressed_b":  0.18
+                                          }
+                       },
+                       {
+                           "parent_key":  "Dummy4Button",
+                           "key":  "Dummy4Label",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "Dummy4Label",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.95,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy 4",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.94,
+                                              "text_color_b":  0.98
+                                          }
+                       },
+                       {
+                           "key":  "Dummy4Button",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "Dummy4Label",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "parent_key":  "MenuButtonColumn",
+                           "key":  "Dummy5Button",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "Dummy5Button",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_hovered_a":  1,
+                                              "button_hovered_b":  0.28,
+                                              "button_hovered_r":  0.2,
+                                              "button_normal_a":  0.95,
+                                              "button_outline_b":  0.29,
+                                              "button_normal_g":  0.16,
+                                              "button_corner_radius":  10,
+                                              "slot_padding_bottom":  6,
+                                              "button_normal_b":  0.2,
+                                              "button_pressed_g":  0.14,
+                                              "button_draw_as":  "rounded_box",
+                                              "button_normal_r":  0.14,
+                                              "button_outline_g":  0.25,
+                                              "button_outline_r":  0.23,
+                                              "button_pressed_a":  1,
+                                              "button_pressed_r":  0.12,
+                                              "button_hovered_g":  0.23,
+                                              "button_outline_width":  1,
+                                              "button_outline_a":  1,
+                                              "button_pressed_b":  0.18
+                                          }
+                       },
+                       {
+                           "parent_key":  "Dummy5Button",
+                           "key":  "Dummy5Label",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "Dummy5Label",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.95,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy 5",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.94,
+                                              "text_color_b":  0.98
+                                          }
+                       },
+                       {
+                           "key":  "Dummy5Button",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "Dummy5Label",
+                           "op":  "bind_widget_ref"
+                       }
+                   ]
+}
+

@@ -5,7 +5,14 @@
 - `widget_patch.scroll_grid_item.sample.json`: sample payload for `WBP_MCPScrollGridItem`
 - `widget_patch.scroll_tile_popup.sample.json`: sample payload for `WBP_MCPScrollTilePopup`
 - `widget_patch.scroll_tile_item.sample.json`: sample payload for `WBP_MCPScrollTileItem`
+- `widget_patch.sidebar_dummy_section.sample.json`: sample payload for adding `Dummy 1..5` section to `WBP_MCPSidebar`
+- `widget_patch.dummy_popup1.sample.json`: sample payload for `WBP_MCPDummyPopup1`
+- `widget_patch.dummy_popup2.sample.json`: sample payload for `WBP_MCPDummyPopup2`
+- `widget_patch.dummy_popup3.sample.json`: sample payload for `WBP_MCPDummyPopup3`
+- `widget_patch.dummy_popup4.sample.json`: sample payload for `WBP_MCPDummyPopup4`
+- `widget_patch.dummy_popup5.sample.json`: sample payload for `WBP_MCPDummyPopup5`
 - `widget_repair.sample.json`: example payload for `widget.repair_tree`
+- `apply_dummy_popup_patches.ps1`: helper script that invokes the sidebar + dummy popup patch specs via local bridge
 
 Widget patch operations support:
 

@@ -8,6 +8,7 @@ class UBorder;
 class UButton;
 class UTextBlock;
 class UMCPABValuePopupWidget;
+class UMCPDummyPopupWidget;
 class UMCPMessagePopupWidget;
 class UMCPScrollGridPopupWidget;
 class UMCPScrollTilePopupWidget;
@@ -43,6 +44,21 @@ protected:
 	UFUNCTION()
 	void HandleMenu7Clicked();
 
+	UFUNCTION()
+	void HandleDummy1Clicked();
+
+	UFUNCTION()
+	void HandleDummy2Clicked();
+
+	UFUNCTION()
+	void HandleDummy3Clicked();
+
+	UFUNCTION()
+	void HandleDummy4Clicked();
+
+	UFUNCTION()
+	void HandleDummy5Clicked();
+
 private:
 	void ResolveMessagePopupClass();
 	UMCPMessagePopupWidget* GetOrCreateMessagePopup();
@@ -52,6 +68,10 @@ private:
 	UMCPScrollGridPopupWidget* GetOrCreateScrollGridPopup();
 	void ResolveScrollTilePopupClass();
 	UMCPScrollTilePopupWidget* GetOrCreateScrollTilePopup();
+	void OpenDummyPopupByIndex(int32 PopupIndex);
+	void ResolveDummyPopupClass(int32 PopupIndex);
+	UMCPDummyPopupWidget* GetOrCreateDummyPopup(int32 PopupIndex);
+	void HandleAnyDummyPopupClosed();
 	void SetPopupModalInput(bool bEnabled, UUserWidget* FocusWidget = nullptr);
 
 	void HandleMessagePopupClosed();
@@ -91,6 +111,24 @@ private:
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UButton> MCP_Menu7Button;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UBorder> MCP_DummyDivider;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Dummy1Button;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Dummy2Button;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Dummy3Button;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Dummy4Button;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Dummy5Button;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu1Label;
 
@@ -111,6 +149,21 @@ private:
 
 	UPROPERTY(meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> MCP_Menu7Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Dummy1Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Dummy2Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Dummy3Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Dummy4Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Dummy5Label;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_ABStatusLabel;
@@ -156,4 +209,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMCPScrollTilePopupWidget> ScrollTilePopupWidgetInstance;
+
+	UPROPERTY(Transient)
+	TArray<TSubclassOf<UMCPDummyPopupWidget>> DummyPopupWidgetClasses;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMCPDummyPopupWidget>> DummyPopupWidgetInstances;
 };

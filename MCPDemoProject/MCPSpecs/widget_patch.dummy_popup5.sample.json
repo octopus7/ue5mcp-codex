@@ -1,0 +1,263 @@
+{
+    "schema_version":  "1.0",
+    "mode":  "patch",
+    "target_widget_path":  "/Game/UI/Widget/WBP_MCPDummyPopup5",
+    "parent_class_path":  "/Script/MCPDemoProject.MCPDummyPopupWidget",
+    "operations":  [
+                       {
+                           "widget_class":  "/Script/UMG.CanvasPanel",
+                           "key":  "RootCanvas",
+                           "op":  "add_widget"
+                       },
+                       {
+                           "parent_key":  "RootCanvas",
+                           "key":  "DimBlocker",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Border"
+                       },
+                       {
+                           "key":  "DimBlocker",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "slot_z_order":  0,
+                                              "brush_tint_g":  0,
+                                              "slot_anchors_min_x":  0,
+                                              "brush_tint_b":  0,
+                                              "visibility":  "visible",
+                                              "slot_anchors_max_x":  1,
+                                              "slot_anchors_max_y":  1,
+                                              "brush_tint_r":  0,
+                                              "slot_position_x":  0,
+                                              "slot_size_x":  0,
+                                              "brush_tint_a":  0,
+                                              "border_draw_as":  "image",
+                                              "slot_size_y":  0,
+                                              "slot_anchors_min_y":  0,
+                                              "slot_position_y":  0
+                                          }
+                       },
+                       {
+                           "parent_key":  "RootCanvas",
+                           "key":  "BlurPanel",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.BackgroundBlur"
+                       },
+                       {
+                           "key":  "BlurPanel",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "blur_strength":  20,
+                                              "slot_alignment_x":  0.5,
+                                              "blur_corner_radius_w":  16,
+                                              "slot_anchors_max_x":  0.5,
+                                              "blur_corner_radius_y":  16,
+                                              "blur_corner_radius_z":  16,
+                                              "slot_size_x":  560,
+                                              "slot_anchors_min_y":  0.5,
+                                              "slot_anchors_max_y":  0.5,
+                                              "blur_corner_radius_x":  16,
+                                              "slot_alignment_y":  0.5,
+                                              "blur_apply_alpha_to_blur":  true,
+                                              "slot_anchors_min_x":  0.5,
+                                              "slot_position_y":  0,
+                                              "slot_position_x":  0,
+                                              "slot_z_order":  1,
+                                              "slot_size_y":  320
+                                          }
+                       },
+                       {
+                           "parent_key":  "BlurPanel",
+                           "key":  "MessageBox",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Border"
+                       },
+                       {
+                           "key":  "MessageBox",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "brush_outline_r":  0.24,
+                                              "brush_tint_r":  0.12,
+                                              "brush_outline_a":  0.75,
+                                              "brush_outline_b":  0.29,
+                                              "brush_outline_width":  1,
+                                              "brush_tint_g":  0.13,
+                                              "brush_tint_b":  0.15,
+                                              "brush_outline_g":  0.25,
+                                              "brush_corner_radius":  16,
+                                              "border_draw_as":  "rounded_box",
+                                              "brush_tint_a":  0.62
+                                          }
+                       },
+                       {
+                           "parent_key":  "MessageBox",
+                           "key":  "IdentityTintPanel",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Border"
+                       },
+                       {
+                           "key":  "IdentityTintPanel",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "brush_tint_a":  0.04,
+                                              "brush_tint_g":  0.92,
+                                              "brush_tint_b":  0.25,
+                                              "border_draw_as":  "rounded_box",
+                                              "brush_tint_r":  1,
+                                              "brush_corner_radius":  12
+                                          }
+                       },
+                       {
+                           "parent_key":  "IdentityTintPanel",
+                           "key":  "ContentVBox",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.VerticalBox"
+                       },
+                       {
+                           "key":  "IdentityTintPanel",
+                           "op":  "reparent_widget",
+                           "new_parent_key":  "MessageBox",
+                           "properties":  {
+                                              "insert_index":  0
+                                          }
+                       },
+                       {
+                           "key":  "ContentVBox",
+                           "op":  "reparent_widget",
+                           "new_parent_key":  "IdentityTintPanel",
+                           "properties":  {
+                                              "insert_index":  0
+                                          }
+                       },
+                       {
+                           "parent_key":  "ContentVBox",
+                           "key":  "TitleText",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "TitleText",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  0.93,
+                                              "text_color_a":  1,
+                                              "text":  "Dummy Popup",
+                                              "text_justification":  "center",
+                                              "text_color_r":  0.92,
+                                              "text_color_b":  0.96,
+                                              "slot_padding_bottom":  10
+                                          }
+                       },
+                       {
+                           "parent_key":  "ContentVBox",
+                           "key":  "MessageText",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "MessageText",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "slot_padding_bottom":  16,
+                                              "text_color_r":  0.85,
+                                              "text":  "Dummy popup content",
+                                              "text_justification":  "center",
+                                              "text_color_a":  1,
+                                              "slot_size_rule":  "fill",
+                                              "text_color_g":  0.87,
+                                              "auto_wrap_text":  true,
+                                              "slot_size_value":  1,
+                                              "text_color_b":  0.91
+                                          }
+                       },
+                       {
+                           "parent_key":  "ContentVBox",
+                           "key":  "ActionRow",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.HorizontalBox"
+                       },
+                       {
+                           "key":  "ActionRow",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "slot_halign":  "right"
+                                          }
+                       },
+                       {
+                           "parent_key":  "ActionRow",
+                           "key":  "CloseButton",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.Button"
+                       },
+                       {
+                           "key":  "CloseButton",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "button_pressed_a":  1,
+                                              "button_pressed_b":  0.26,
+                                              "button_corner_radius":  8,
+                                              "button_pressed_r":  0.18,
+                                              "slot_valign":  "center",
+                                              "button_normal_r":  0.22,
+                                              "button_normal_g":  0.25,
+                                              "button_hovered_g":  0.31,
+                                              "button_hovered_a":  1,
+                                              "button_normal_a":  1,
+                                              "button_hovered_r":  0.28,
+                                              "button_normal_b":  0.3,
+                                              "button_hovered_b":  0.36,
+                                              "button_pressed_g":  0.21,
+                                              "button_draw_as":  "rounded_box"
+                                          }
+                       },
+                       {
+                           "parent_key":  "CloseButton",
+                           "key":  "CloseLabel",
+                           "op":  "add_widget",
+                           "widget_class":  "/Script/UMG.TextBlock"
+                       },
+                       {
+                           "key":  "CloseLabel",
+                           "op":  "update_widget",
+                           "properties":  {
+                                              "text_color_g":  1,
+                                              "text_color_a":  1,
+                                              "text":  "Close",
+                                              "text_justification":  "center",
+                                              "text_color_r":  1,
+                                              "text_color_b":  1
+                                          }
+                       },
+                       {
+                           "key":  "DimBlocker",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "BlurPanel",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "MessageBox",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "IdentityTintPanel",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "TitleText",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "MessageText",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "CloseButton",
+                           "op":  "bind_widget_ref"
+                       },
+                       {
+                           "key":  "CloseLabel",
+                           "op":  "bind_widget_ref"
+                       }
+                   ]
+}
