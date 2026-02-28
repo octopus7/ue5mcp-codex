@@ -2,12 +2,14 @@
 
 #include "MCPABValuePopupWidget.h"
 #include "MCPMessagePopupWidget.h"
+#include "MCPPopupManagerSubsystem.h"
 #include "MCPScrollGridPopupWidget.h"
 #include "MCPScrollTilePopupWidget.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Engine/Engine.h"
+#include "Engine/LocalPlayer.h"
 #include "GameFramework/PlayerController.h"
 #include "UObject/SoftObjectPath.h"
 
@@ -50,12 +52,24 @@ void UMCPSidebarWidget::NativeConstruct()
 		MCP_Menu4Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu4Clicked);
 	}
 
-	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s"),
+	if (MCP_Menu5Button != nullptr)
+	{
+		MCP_Menu5Button->OnClicked.RemoveDynamic(this, &UMCPSidebarWidget::HandleMenu5Clicked);
+		MCP_Menu5Button->OnClicked.AddDynamic(this, &UMCPSidebarWidget::HandleMenu5Clicked);
+	}
+
+	if (MCP_Menu5Label != nullptr && MCP_Menu5Label->GetText().IsEmpty())
+	{
+		MCP_Menu5Label->SetText(FText::FromString(TEXT("Confirm Popup")));
+	}
+
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] NativeConstruct end. Panel=%s Buttons: M1=%s M2=%s M3=%s M4=%s M5=%s"),
 		MCP_SidebarPanel != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu1Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu2Button != nullptr ? TEXT("true") : TEXT("false"),
 		MCP_Menu3Button != nullptr ? TEXT("true") : TEXT("false"),
-		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"));
+		MCP_Menu4Button != nullptr ? TEXT("true") : TEXT("false"),
+		MCP_Menu5Button != nullptr ? TEXT("true") : TEXT("false"));
 }
 
 void UMCPSidebarWidget::HandleMenu1Clicked()
@@ -138,6 +152,38 @@ void UMCPSidebarWidget::HandleMenu4Clicked()
 
 	PopupWidget->OpenPopup();
 	SetPopupModalInput(true, PopupWidget);
+}
+
+void UMCPSidebarWidget::HandleMenu5Clicked()
+{
+	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Menu5 (ConfirmPopup) clicked."));
+
+	ULocalPlayer* OwningLocalPlayer = GetOwningLocalPlayer();
+	if (OwningLocalPlayer == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open confirm popup: owning local player is null."));
+		return;
+	}
+
+	UMCPPopupManagerSubsystem* PopupManager = OwningLocalPlayer->GetSubsystem<UMCPPopupManagerSubsystem>();
+	if (PopupManager == nullptr)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[MCPSidebar] Failed to open confirm popup: popup manager subsystem is null."));
+		return;
+	}
+
+	FMCPConfirmPopupRequest Request;
+	Request.Title = FText::FromString(TEXT("Confirm Popup"));
+	Request.Message = FText::FromString(TEXT("Proceed with this test action?"));
+	Request.ConfirmLabel = FText::FromString(TEXT("Confirm"));
+	Request.CancelLabel = FText::FromString(TEXT("Cancel"));
+	Request.Callback = FMCPConfirmPopupResultCallback::CreateUObject(this, &UMCPSidebarWidget::HandleMenu5ConfirmResult);
+
+	if (!PopupManager->RequestConfirmPopup(MoveTemp(Request)))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[MCPSidebar] Confirm popup request rejected by popup manager."));
+		ShowDebugMessage(TEXT("Confirm popup request rejected"), FColor::Red);
+	}
 }
 
 void UMCPSidebarWidget::ResolveMessagePopupClass()
@@ -446,6 +492,13 @@ void UMCPSidebarWidget::HandleScrollTilePopupClosed()
 {
 	UE_LOG(LogTemp, Log, TEXT("[MCPSidebar] Scroll-tile popup closed."));
 	SetPopupModalInput(false, nullptr);
+}
+
+void UMCPSidebarWidget::HandleMenu5ConfirmResult(bool bConfirmed)
+{
+	ShowDebugMessage(
+		bConfirmed ? TEXT("Confirm popup confirmed") : TEXT("Confirm popup canceled"),
+		bConfirmed ? FColor::Green : FColor::Orange);
 }
 
 void UMCPSidebarWidget::RefreshABValueDisplay()

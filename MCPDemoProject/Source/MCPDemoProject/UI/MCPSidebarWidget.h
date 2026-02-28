@@ -33,6 +33,9 @@ protected:
 	UFUNCTION()
 	void HandleMenu4Clicked();
 
+	UFUNCTION()
+	void HandleMenu5Clicked();
+
 private:
 	void ResolveMessagePopupClass();
 	UMCPMessagePopupWidget* GetOrCreateMessagePopup();
@@ -49,6 +52,7 @@ private:
 	void HandleABPopupCancelled();
 	void HandleScrollGridPopupClosed();
 	void HandleScrollTilePopupClosed();
+	void HandleMenu5ConfirmResult(bool bConfirmed);
 	void RefreshABValueDisplay();
 
 	void ShowDebugMessage(const FString& Message, const FColor& Color) const;
@@ -69,6 +73,9 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UButton> MCP_Menu4Button;
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UButton> MCP_Menu5Button;
+
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu1Label;
 
@@ -80,6 +87,9 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_Menu4Label;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> MCP_Menu5Label;
 
 	UPROPERTY(meta = (BindWidget))
 	TObjectPtr<UTextBlock> MCP_ABStatusLabel;
