@@ -4,6 +4,7 @@
 #include "Animation/WidgetAnimation.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/BackgroundBlur.h"
 #include "Components/Border.h"
 #include "Components/BorderSlot.h"
 #include "Components/Button.h"
@@ -1284,6 +1285,92 @@ bool ApplyUpdateWidgetOp(
 		}
 		return false;
 	};
+
+	const bool bHasBackgroundBlurProps =
+		Operation.NumberProps.Contains(TEXT("blur_strength")) ||
+		Operation.NumberProps.Contains(TEXT("blur_radius")) ||
+		Operation.NumberProps.Contains(TEXT("blur_corner_radius")) ||
+		Operation.NumberProps.Contains(TEXT("blur_corner_radius_x")) ||
+		Operation.NumberProps.Contains(TEXT("blur_corner_radius_y")) ||
+		Operation.NumberProps.Contains(TEXT("blur_corner_radius_z")) ||
+		Operation.NumberProps.Contains(TEXT("blur_corner_radius_w")) ||
+		Operation.BoolProps.Contains(TEXT("blur_apply_alpha_to_blur"));
+
+	if (bHasBackgroundBlurProps)
+	{
+		if (UBackgroundBlur* BackgroundBlurWidget = Cast<UBackgroundBlur>(Widget))
+		{
+			float NumberValue = 0.0f;
+			const bool bHasBlurStrength = TryGetNumberProp(TEXT("blur_strength"), NumberValue);
+			const float BlurStrength = NumberValue;
+			const bool bHasBlurRadius = TryGetNumberProp(TEXT("blur_radius"), NumberValue);
+			const int32 BlurRadius = FMath::Max(0, FMath::RoundToInt(NumberValue));
+			const bool bHasApplyAlphaToBlur = Operation.BoolProps.Contains(TEXT("blur_apply_alpha_to_blur"));
+			const bool bApplyAlphaToBlur = bHasApplyAlphaToBlur ? Operation.BoolProps[TEXT("blur_apply_alpha_to_blur")] : false;
+
+			FVector4 CornerRadius = BackgroundBlurWidget->GetCornerRadius();
+			bool bHasCornerRadius = false;
+			if (TryGetNumberProp(TEXT("blur_corner_radius"), NumberValue))
+			{
+				CornerRadius = FVector4(NumberValue, NumberValue, NumberValue, NumberValue);
+				bHasCornerRadius = true;
+			}
+			if (TryGetNumberProp(TEXT("blur_corner_radius_x"), NumberValue))
+			{
+				CornerRadius.X = NumberValue;
+				bHasCornerRadius = true;
+			}
+			if (TryGetNumberProp(TEXT("blur_corner_radius_y"), NumberValue))
+			{
+				CornerRadius.Y = NumberValue;
+				bHasCornerRadius = true;
+			}
+			if (TryGetNumberProp(TEXT("blur_corner_radius_z"), NumberValue))
+			{
+				CornerRadius.Z = NumberValue;
+				bHasCornerRadius = true;
+			}
+			if (TryGetNumberProp(TEXT("blur_corner_radius_w"), NumberValue))
+			{
+				CornerRadius.W = NumberValue;
+				bHasCornerRadius = true;
+			}
+
+			const bool bBackgroundBlurChanged = bHasBlurStrength || bHasBlurRadius || bHasApplyAlphaToBlur || bHasCornerRadius;
+			if (bBackgroundBlurChanged)
+			{
+				bAnyChange = true;
+				if (!bDryRun)
+				{
+					BackgroundBlurWidget->Modify();
+
+					if (bHasBlurStrength)
+					{
+						BackgroundBlurWidget->SetBlurStrength(BlurStrength);
+					}
+
+					if (bHasBlurRadius)
+					{
+						BackgroundBlurWidget->SetBlurRadius(BlurRadius);
+					}
+
+					if (bHasApplyAlphaToBlur)
+					{
+						BackgroundBlurWidget->SetApplyAlphaToBlur(bApplyAlphaToBlur);
+					}
+
+					if (bHasCornerRadius)
+					{
+						BackgroundBlurWidget->SetCornerRadius(CornerRadius);
+					}
+				}
+			}
+		}
+		else
+		{
+			Response.AddWarning(TEXT("unsupported_blur_property_target"), TEXT("blur_* properties are only supported for UBackgroundBlur widgets."), Key);
+		}
+	}
 
 	if (UBorder* BorderWidget = Cast<UBorder>(Widget))
 	{
