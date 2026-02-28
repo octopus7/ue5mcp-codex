@@ -44,7 +44,11 @@ function Convert-ResponseBodyToObject {
 	}
 
 	try {
-		return $Body | ConvertFrom-Json -Depth 80
+		if ($PSVersionTable.PSVersion.Major -ge 6) {
+			return $Body | ConvertFrom-Json -Depth 80
+		}
+
+		return $Body | ConvertFrom-Json
 	}
 	catch {
 		return [pscustomobject]@{

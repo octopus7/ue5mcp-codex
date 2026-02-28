@@ -1,0 +1,426 @@
+﻿{
+    "run_count":  20,
+    "dry_run":  true,
+    "summary":  [
+                    {
+                        "transport":  "http",
+                        "count":  20,
+                        "avg_ms":  343.836,
+                        "median_ms":  333.014,
+                        "min_ms":  308.408,
+                        "max_ms":  571.834,
+                        "p95_ms":  335.175
+                    },
+                    {
+                        "transport":  "named_pipe",
+                        "count":  20,
+                        "avg_ms":  166.19,
+                        "median_ms":  166.092,
+                        "min_ms":  2.538,
+                        "max_ms":  327.287,
+                        "p95_ms":  327.058
+                    }
+                ],
+    "rows":  [
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-1",
+                     "ms":  571.834,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-2",
+                     "ms":  308.408,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-3",
+                     "ms":  332.987,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-4",
+                     "ms":  335.03,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-5",
+                     "ms":  330.773,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-6",
+                     "ms":  333.861,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-7",
+                     "ms":  332.019,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-8",
+                     "ms":  332.991,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-9",
+                     "ms":  333.016,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-10",
+                     "ms":  334.735,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-11",
+                     "ms":  331.293,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-12",
+                     "ms":  333.706,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-13",
+                     "ms":  333.012,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-14",
+                     "ms":  332.671,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-15",
+                     "ms":  333.193,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-16",
+                     "ms":  332.753,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-17",
+                     "ms":  333.613,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-18",
+                     "ms":  335.175,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-19",
+                     "ms":  330.565,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "http",
+                     "request_id":  "http-create-20",
+                     "ms":  335.091,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-1",
+                     "ms":  326.884,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-2",
+                     "ms":  2.538,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-3",
+                     "ms":  324.17,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-4",
+                     "ms":  5.942,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-5",
+                     "ms":  327.058,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-6",
+                     "ms":  6.094,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-7",
+                     "ms":  327.287,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-8",
+                     "ms":  7.605,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-9",
+                     "ms":  324.605,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-10",
+                     "ms":  6.49,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-11",
+                     "ms":  326.481,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-12",
+                     "ms":  6.258,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-13",
+                     "ms":  326.787,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-14",
+                     "ms":  6.289,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-15",
+                     "ms":  326.666,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-16",
+                     "ms":  8.014,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-17",
+                     "ms":  325.212,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-18",
+                     "ms":  7.1,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-19",
+                     "ms":  326.197,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 },
+                 {
+                     "transport":  "named_pipe",
+                     "request_id":  "pipe-create-20",
+                     "ms":  6.117,
+                     "status":  "Success",
+                     "applied":  0,
+                     "skipped":  0,
+                     "errors":  0,
+                     "warnings":  1
+                 }
+             ]
+}
