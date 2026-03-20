@@ -13,7 +13,7 @@ Minimal Unreal Engine 5.7 project shell with the base game module, `BasicMap`, a
 
 ## OctoMCP Hello World
 
-`OctoMCP` is an editor-only plugin that exposes a small localhost HTTP bridge. `scripts/ue_mcp_server.py` is the stdio MCP server that translates MCP tool calls into HTTP requests to the running Unreal Editor.
+`OctoMCP` is an editor-only plugin that exposes a small localhost HTTP bridge. `MCPDemoProject/Plugins/OctoMCP/Scripts/ue_mcp_server.py` is the stdio MCP server that translates MCP tool calls into HTTP requests to the running Unreal Editor.
 
 ### What v1 exposes
 
@@ -36,7 +36,7 @@ The tool returns:
 2. Start the MCP server from the repo root:
 
 ```powershell
-python scripts/ue_mcp_server.py
+python MCPDemoProject/Plugins/OctoMCP/Scripts/ue_mcp_server.py
 ```
 
 3. Point your MCP client at the script. Example config:
@@ -46,11 +46,13 @@ python scripts/ue_mcp_server.py
   "mcpServers": {
     "OctoMCP": {
       "command": "python",
-      "args": ["scripts/ue_mcp_server.py"]
+      "args": ["MCPDemoProject/Plugins/OctoMCP/Scripts/ue_mcp_server.py"]
     }
   }
 }
 ```
+
+If you launch it from the Unreal project root instead of the repo root, the equivalent path is `Plugins/OctoMCP/Scripts/ue_mcp_server.py`.
 
 ### Manual bridge checks
 
