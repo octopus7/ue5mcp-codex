@@ -2,8 +2,22 @@
 
 #include "Async/Async.h"
 #include "AssetToolsModule.h"
+#include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/Border.h"
+#include "Components/Button.h"
+#include "Components/ButtonSlot.h"
+#include "Components/CanvasPanel.h"
+#include "Components/CanvasPanelSlot.h"
+#include "Components/HorizontalBox.h"
+#include "Components/HorizontalBoxSlot.h"
+#include "Components/Image.h"
+#include "Components/SizeBox.h"
+#include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
+#include "Components/VerticalBoxSlot.h"
 #include "Editor.h"
+#include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Modules/ModuleManager.h"
 #include "Subsystems/EditorAssetSubsystem.h"
@@ -42,6 +56,7 @@ namespace OctoMCP
 	const TCHAR* const CommandGetVersionInfo = TEXT("get_version_info");
 	const TCHAR* const CommandLiveCodingCompile = TEXT("live_coding_compile");
 	const TCHAR* const CommandCreateWidgetBlueprint = TEXT("create_widget_blueprint");
+	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
 }
 
 namespace
@@ -84,6 +99,18 @@ namespace
 		FString AssetName;
 		FString ParentClassPath;
 		FString ParentClassName;
+	};
+
+	struct FScaffoldWidgetBlueprintResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString ScaffoldType;
 	};
 }
 
@@ -334,6 +361,69 @@ private:
 					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
 				}
 				ResponseObject->SetObjectField(TEXT("result"), BuildCreateWidgetBlueprintObject(AssetPath, ParentClassPath, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandScaffoldWidgetBlueprint)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ScaffoldType;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("scaffoldType"), ScaffoldType, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, ScaffoldType, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(TEXT("result"), BuildScaffoldWidgetBlueprintObject(AssetPath, ScaffoldType, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -627,6 +717,341 @@ private:
 
 		OutError = FString::Printf(TEXT("Could not resolve parent widget class: %s"), *TrimmedClassPath);
 		return nullptr;
+	}
+
+	TSharedRef<FJsonObject> BuildScaffoldWidgetBlueprintObject(
+		const FString& AssetPath,
+		const FString& ScaffoldType,
+		const bool bSaveAsset) const
+	{
+		const FScaffoldWidgetBlueprintResult ScaffoldResult =
+			ScaffoldWidgetBlueprintAsset(AssetPath, ScaffoldType, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), ScaffoldResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), ScaffoldResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), ScaffoldResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), ScaffoldResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), ScaffoldResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), ScaffoldResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), ScaffoldResult.AssetName);
+		ResultObject->SetStringField(TEXT("scaffoldType"), ScaffoldResult.ScaffoldType);
+		return ResultObject;
+	}
+
+	FScaffoldWidgetBlueprintResult ScaffoldWidgetBlueprintAsset(
+		const FString& InAssetPath,
+		const FString& InScaffoldType,
+		const bool bSaveAsset) const
+	{
+		FScaffoldWidgetBlueprintResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.ScaffoldType = InScaffoldType.TrimStartAndEnd().ToLower();
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		if (WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Widget Blueprint is missing a widget tree: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		WidgetBlueprint->SetFlags(RF_Transactional);
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->SetFlags(RF_Transactional);
+		WidgetBlueprint->WidgetTree->Modify();
+
+		ResetWidgetBlueprintTree(WidgetBlueprint);
+
+		bool bBuiltScaffold = false;
+		if (Result.ScaffoldType == TEXT("popup"))
+		{
+			bBuiltScaffold = BuildPopupWidgetScaffold(WidgetBlueprint);
+		}
+		else if (Result.ScaffoldType == TEXT("bottom_button_bar"))
+		{
+			bBuiltScaffold = BuildBottomButtonBarWidgetScaffold(WidgetBlueprint);
+		}
+		else
+		{
+			Result.Message = FString::Printf(TEXT("Unsupported scaffoldType: %s"), *InScaffoldType);
+			return Result;
+		}
+
+		if (!bBuiltScaffold || WidgetBlueprint->WidgetTree->RootWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to build scaffold %s for Widget Blueprint %s."),
+				*Result.ScaffoldType,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Scaffolded Widget Blueprint but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Scaffolded Widget Blueprint but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Scaffolded Widget Blueprint %s using scaffold type %s."),
+			*AssetObjectPath,
+			*Result.ScaffoldType);
+		return Result;
+	}
+
+	void ResetWidgetBlueprintTree(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		TArray<UWidget*> ExistingWidgets;
+		WidgetBlueprint->WidgetTree->GetAllWidgets(ExistingWidgets);
+
+		for (UWidget* Widget : ExistingWidgets)
+		{
+			if (Widget != nullptr && Widget->bIsVariable)
+			{
+				WidgetBlueprint->OnVariableRemoved(Widget->GetFName());
+			}
+		}
+
+		for (int32 WidgetIndex = ExistingWidgets.Num() - 1; WidgetIndex >= 0; --WidgetIndex)
+		{
+			if (ExistingWidgets[WidgetIndex] != nullptr)
+			{
+				WidgetBlueprint->WidgetTree->RemoveWidget(ExistingWidgets[WidgetIndex]);
+			}
+		}
+
+		WidgetBlueprint->WidgetTree->NamedSlotBindings.Empty();
+		WidgetBlueprint->WidgetTree->RootWidget = nullptr;
+	}
+
+	void RegisterBindableWidget(UWidgetBlueprint* WidgetBlueprint, UWidget* Widget) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(Widget != nullptr);
+
+		Widget->bIsVariable = true;
+		WidgetBlueprint->OnVariableAdded(Widget->GetFName());
+	}
+
+	bool BuildPopupWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		UWidgetTree* const WidgetTree = WidgetBlueprint->WidgetTree;
+
+		UCanvasPanel* const RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+		if (RootCanvas == nullptr)
+		{
+			return false;
+		}
+
+		WidgetTree->RootWidget = RootCanvas;
+
+		UBorder* const Backdrop = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Backdrop"));
+		Backdrop->SetBrushColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.58f));
+
+		if (UCanvasPanelSlot* const BackdropSlot = RootCanvas->AddChildToCanvas(Backdrop))
+		{
+			BackdropSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+			BackdropSlot->SetOffsets(FMargin(0.0f, 0.0f, 0.0f, 0.0f));
+			BackdropSlot->SetZOrder(0);
+		}
+
+		UBorder* const PopupCard = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("PopupCard"));
+		PopupCard->SetPadding(FMargin(28.0f));
+		PopupCard->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 1.0f));
+		PopupCard->SetHorizontalAlignment(HAlign_Fill);
+		PopupCard->SetVerticalAlignment(VAlign_Fill);
+
+		if (UCanvasPanelSlot* const PopupCardSlot = RootCanvas->AddChildToCanvas(PopupCard))
+		{
+			PopupCardSlot->SetAnchors(FAnchors(0.5f, 0.5f));
+			PopupCardSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+			PopupCardSlot->SetOffsets(FMargin(0.0f, 0.0f, 560.0f, 640.0f));
+			PopupCardSlot->SetZOrder(1);
+		}
+
+		UVerticalBox* const PopupContent = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("PopupContent"));
+		PopupCard->AddChild(PopupContent);
+
+		UHorizontalBox* const HeaderRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("HeaderRow"));
+		if (UVerticalBoxSlot* const HeaderSlot = PopupContent->AddChildToVerticalBox(HeaderRow))
+		{
+			HeaderSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 18.0f));
+			HeaderSlot->SetHorizontalAlignment(HAlign_Fill);
+			HeaderSlot->SetVerticalAlignment(VAlign_Center);
+		}
+
+		UTextBlock* const TitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TitleText"));
+		TitleText->SetText(FText::FromString(TEXT("Popup Title")));
+		TitleText->SetAutoWrapText(true);
+		TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		RegisterBindableWidget(WidgetBlueprint, TitleText);
+
+		if (UHorizontalBoxSlot* const TitleSlot = HeaderRow->AddChildToHorizontalBox(TitleText))
+		{
+			FSlateChildSize FillSize(ESlateSizeRule::Fill);
+			FillSize.Value = 1.0f;
+			TitleSlot->SetSize(FillSize);
+			TitleSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+			TitleSlot->SetHorizontalAlignment(HAlign_Left);
+			TitleSlot->SetVerticalAlignment(VAlign_Center);
+		}
+
+		UButton* const CloseButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("CloseButton"));
+		CloseButton->SetBackgroundColor(FLinearColor(0.16f, 0.17f, 0.20f, 1.0f));
+		RegisterBindableWidget(WidgetBlueprint, CloseButton);
+
+		if (UHorizontalBoxSlot* const CloseSlot = HeaderRow->AddChildToHorizontalBox(CloseButton))
+		{
+			CloseSlot->SetHorizontalAlignment(HAlign_Right);
+			CloseSlot->SetVerticalAlignment(VAlign_Center);
+		}
+
+		UTextBlock* const CloseLabel = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CloseLabel"));
+		CloseLabel->SetText(FText::FromString(TEXT("Close")));
+		CloseLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+
+		if (UButtonSlot* const CloseButtonSlot = Cast<UButtonSlot>(CloseButton->AddChild(CloseLabel)))
+		{
+			CloseButtonSlot->SetPadding(FMargin(12.0f, 6.0f));
+			CloseButtonSlot->SetHorizontalAlignment(HAlign_Center);
+			CloseButtonSlot->SetVerticalAlignment(VAlign_Center);
+		}
+
+		USizeBox* const ImageBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("ImageBox"));
+		ImageBox->SetHeightOverride(220.0f);
+		if (UVerticalBoxSlot* const ImageBoxSlot = PopupContent->AddChildToVerticalBox(ImageBox))
+		{
+			ImageBoxSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
+			ImageBoxSlot->SetHorizontalAlignment(HAlign_Fill);
+			ImageBoxSlot->SetVerticalAlignment(VAlign_Fill);
+		}
+
+		UBorder* const ImageFrame = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("ImageFrame"));
+		ImageFrame->SetBrushColor(FLinearColor(0.14f, 0.15f, 0.18f, 1.0f));
+		ImageFrame->SetPadding(FMargin(12.0f));
+		ImageFrame->SetHorizontalAlignment(HAlign_Fill);
+		ImageFrame->SetVerticalAlignment(VAlign_Fill);
+		ImageBox->AddChild(ImageFrame);
+
+		UImage* const PopupImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("PopupImage"));
+		PopupImage->SetDesiredSizeOverride(FVector2D(504.0f, 196.0f));
+		RegisterBindableWidget(WidgetBlueprint, PopupImage);
+		ImageFrame->AddChild(PopupImage);
+
+		UTextBlock* const BodyText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("BodyText"));
+		BodyText->SetText(FText::FromString(TEXT("Primary description goes here.")));
+		BodyText->SetAutoWrapText(true);
+		BodyText->SetColorAndOpacity(FSlateColor(FLinearColor(0.92f, 0.94f, 0.96f, 1.0f)));
+		RegisterBindableWidget(WidgetBlueprint, BodyText);
+
+		if (UVerticalBoxSlot* const BodySlot = PopupContent->AddChildToVerticalBox(BodyText))
+		{
+			BodySlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 12.0f));
+			BodySlot->SetHorizontalAlignment(HAlign_Fill);
+		}
+
+		UTextBlock* const FooterText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("FooterText"));
+		FooterText->SetText(FText::FromString(TEXT("Secondary supporting text.")));
+		FooterText->SetAutoWrapText(true);
+		FooterText->SetColorAndOpacity(FSlateColor(FLinearColor(0.72f, 0.76f, 0.82f, 1.0f)));
+		RegisterBindableWidget(WidgetBlueprint, FooterText);
+
+		if (UVerticalBoxSlot* const FooterSlot = PopupContent->AddChildToVerticalBox(FooterText))
+		{
+			FooterSlot->SetHorizontalAlignment(HAlign_Fill);
+		}
+
+		return true;
+	}
+
+	bool BuildBottomButtonBarWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		UWidgetTree* const WidgetTree = WidgetBlueprint->WidgetTree;
+
+		UCanvasPanel* const RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+		if (RootCanvas == nullptr)
+		{
+			return false;
+		}
+
+		WidgetTree->RootWidget = RootCanvas;
+
+		USizeBox* const BarBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("BarBox"));
+		BarBox->SetWidthOverride(880.0f);
+		BarBox->SetHeightOverride(96.0f);
+
+		if (UCanvasPanelSlot* const BarBoxSlot = RootCanvas->AddChildToCanvas(BarBox))
+		{
+			BarBoxSlot->SetAnchors(FAnchors(0.5f, 1.0f));
+			BarBoxSlot->SetAlignment(FVector2D(0.5f, 1.0f));
+			BarBoxSlot->SetOffsets(FMargin(0.0f, -24.0f, 880.0f, 96.0f));
+		}
+
+		UBorder* const BarFrame = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("BarFrame"));
+		BarFrame->SetPadding(FMargin(18.0f));
+		BarFrame->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 0.96f));
+		BarFrame->SetHorizontalAlignment(HAlign_Fill);
+		BarFrame->SetVerticalAlignment(VAlign_Fill);
+		BarBox->AddChild(BarFrame);
+
+		UHorizontalBox* const ButtonContainer = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("ButtonContainer"));
+		RegisterBindableWidget(WidgetBlueprint, ButtonContainer);
+		BarFrame->AddChild(ButtonContainer);
+
+		return true;
 	}
 
 #if WITH_LIVE_CODING

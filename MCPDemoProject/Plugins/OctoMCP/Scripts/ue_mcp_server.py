@@ -25,9 +25,11 @@ UE_TIMEOUT_SECONDS = 5.0
 LIVE_CODING_WAIT_TIMEOUT_SECONDS = 300.0
 LIVE_CODING_NOWAIT_TIMEOUT_SECONDS = 15.0
 CREATE_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
+SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
 CREATE_WIDGET_BLUEPRINT_TOOL_NAME = "ue_create_widget_blueprint"
+SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
 
 
 class JsonRpcError(Exception):
@@ -240,6 +242,69 @@ def build_create_widget_blueprint_tool_definition() -> dict[str, Any]:
                 "assetName",
                 "parentClassPath",
                 "parentClassName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME,
+        "title": "Scaffold Unreal Widget Blueprint",
+        "description": (
+            "Populate an existing Widget Blueprint asset with a predefined widget-tree scaffold. "
+            "Currently supports popup and bottom button bar scaffolds."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": (
+                        "Existing Widget Blueprint asset path such as /Game/UI/Widget/WBP_MCPPopup "
+                        "or /Game/UI/Widget/WBP_MCPPopup.WBP_MCPPopup."
+                    ),
+                },
+                "scaffoldType": {
+                    "type": "string",
+                    "enum": ["popup", "bottom_button_bar"],
+                    "description": "Predefined widget tree scaffold to apply to the target Widget Blueprint.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "scaffoldType"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "scaffoldType": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "scaffoldType",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -516,6 +581,82 @@ def build_create_widget_blueprint_tool_error(
     }
 
 
+def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_scaffold_widget_blueprint.assetPath must be a non-empty string.")
+
+    scaffold_type = arguments.get("scaffoldType")
+    if not isinstance(scaffold_type, str) or scaffold_type not in {"popup", "bottom_button_bar"}:
+        raise JsonRpcError(
+            -32602,
+            "ue_scaffold_widget_blueprint.scaffoldType must be one of: popup, bottom_button_bar.",
+        )
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_scaffold_widget_blueprint.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "scaffold_widget_blueprint",
+        {
+            "assetPath": asset_path,
+            "scaffoldType": scaffold_type,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "scaffoldType": str(bridge_result.get("scaffoldType", scaffold_type)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"scaffold={structured_content['scaffoldType']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_scaffold_widget_blueprint_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, scaffold_type: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "scaffoldType": scaffold_type,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
     if not isinstance(params, dict):
         raise JsonRpcError(-32602, "initialize params must be an object.")
@@ -539,7 +680,8 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
             "instructions": (
                 "Call ue_get_version_info to verify connectivity, or "
                 "ue_live_coding_compile to trigger a Live Coding build in the running Unreal Editor, "
-                "or ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class."
+                "ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class, "
+                "or ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree."
             ),
         },
     )
@@ -554,6 +696,7 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_version_tool_definition(),
                 build_live_coding_tool_definition(),
                 build_create_widget_blueprint_tool_definition(),
+                build_scaffold_widget_blueprint_tool_definition(),
             ]
         },
     )
@@ -602,6 +745,24 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 exc.editor_reachable,
                 str(asset_path or ""),
                 str(parent_class_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        scaffold_type = tool_arguments.get("scaffoldType", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_scaffold_widget_blueprint.assetPath must be a string.")
+        if scaffold_type is not None and not isinstance(scaffold_type, str):
+            raise JsonRpcError(-32602, "ue_scaffold_widget_blueprint.scaffoldType must be a string.")
+        try:
+            result = build_scaffold_widget_blueprint_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_scaffold_widget_blueprint_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(scaffold_type or ""),
             )
         return make_response(message_id, result)
 
