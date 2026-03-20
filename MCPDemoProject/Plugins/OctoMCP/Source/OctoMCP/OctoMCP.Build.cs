@@ -9,12 +9,21 @@ public class OctoMCP : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"AssetTools",
 				"Core",
 				"CoreUObject",
 				"Engine",
 				"HTTPServer",
 				"Json",
-				"Projects"
+				"Projects",
+				"UMG",
+				"UMGEditor",
+				"UnrealEd"
 			});
+
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			PrivateDependencyModuleNames.Add("LiveCoding");
+		}
 	}
 }

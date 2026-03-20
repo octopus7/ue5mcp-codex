@@ -11,15 +11,16 @@ Minimal Unreal Engine 5.7 project shell with the base game module, `BasicMap`, a
 - Default game mode: `GameModeBase`
 - OctoMCP editor bridge: `http://127.0.0.1:47831`
 
-## OctoMCP Hello World
+## OctoMCP Tools
 
 `OctoMCP` is an editor-only plugin that exposes a small localhost HTTP bridge. `MCPDemoProject/Plugins/OctoMCP/Scripts/ue_mcp_server.py` is the stdio MCP server that translates MCP tool calls into HTTP requests to the running Unreal Editor.
 
-### What v1 exposes
+### What it exposes
 
 - Internal health endpoint: `GET http://127.0.0.1:47831/api/v1/health`
 - Internal command endpoint: `POST http://127.0.0.1:47831/api/v1/command`
 - MCP tool: `ue_get_version_info`
+- MCP tool: `ue_live_coding_compile`
 
 The tool returns:
 
@@ -29,6 +30,24 @@ The tool returns:
 - `projectName`
 - `pluginVersion`
 - `editorReachable`
+
+`ue_live_coding_compile` triggers a Live Coding build in the running Unreal Editor. It accepts:
+
+- `waitForCompletion` (`true` by default): wait for the compile to finish before returning.
+
+Its structured result includes:
+
+- `liveCodingSupported`
+- `waitedForCompletion`
+- `success`
+- `compileResult`
+- `message`
+- `enableError`
+- `enabledByDefault`
+- `canEnableForSession`
+- `enabledForSession`
+- `hasStarted`
+- `isCompiling`
 
 ### Usage
 
@@ -73,6 +92,21 @@ Invoke-WebRequest `
   -Uri http://127.0.0.1:47831/api/v1/command `
   -ContentType "application/json" `
   -Body $body
+
+$liveCodingBody = @{
+  command = "live_coding_compile"
+  arguments = @{
+    waitForCompletion = $true
+  }
+  requestId = "manual-live-coding"
+} | ConvertTo-Json -Compress
+
+Invoke-WebRequest `
+  -UseBasicParsing `
+  -Method Post `
+  -Uri http://127.0.0.1:47831/api/v1/command `
+  -ContentType "application/json" `
+  -Body $liveCodingBody
 ```
 
-The editor must already be running. The Python MCP server does not auto-launch Unreal Editor in v1.
+The editor must already be running. The Python MCP server does not auto-launch Unreal Editor.
