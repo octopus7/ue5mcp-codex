@@ -82,6 +82,7 @@ namespace OctoMCP
 	const TCHAR* const CommandSetWidgetBackgroundBlur = TEXT("set_widget_background_blur");
 	const TCHAR* const CommandSetWidgetCornerRadius = TEXT("set_widget_corner_radius");
 	const TCHAR* const CommandSetWidgetPanelColor = TEXT("set_widget_panel_color");
+	const TCHAR* const CommandSetSizeBoxHeightOverride = TEXT("set_size_box_height_override");
 	const TCHAR* const CommandSetPopupOpenElasticScale = TEXT("set_popup_open_elastic_scale");
 	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
 }
@@ -254,6 +255,19 @@ namespace
 		float OscillationCount = 0.0f;
 		float PivotX = 0.5f;
 		float PivotY = 0.5f;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+	};
+
+	struct FSetSizeBoxHeightOverrideResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		float HeightOverride = 0.0f;
 		FString Message;
 		FString AssetPath;
 		FString AssetObjectPath;
@@ -1187,6 +1201,84 @@ private:
 				ResponseObject->SetObjectField(
 					TEXT("result"),
 					BuildSetWidgetPanelColorObject(AssetPath, WidgetName, Red, Green, Blue, Alpha, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetSizeBoxHeightOverride)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float HeightOverride = 0.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("heightOverride"), HeightOverride, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, HeightOverride, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetSizeBoxHeightOverrideObject(AssetPath, WidgetName, HeightOverride, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -2998,6 +3090,120 @@ private:
 			Result.Green,
 			Result.Blue,
 			Result.Alpha);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetSizeBoxHeightOverrideObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const float HeightOverride,
+		const bool bSaveAsset) const
+	{
+		const FSetSizeBoxHeightOverrideResult SetResult =
+			SetSizeBoxHeightOverride(AssetPath, WidgetName, HeightOverride, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetNumberField(TEXT("heightOverride"), SetResult.HeightOverride);
+		return ResultObject;
+	}
+
+	FSetSizeBoxHeightOverrideResult SetSizeBoxHeightOverride(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const float InHeightOverride,
+		const bool bSaveAsset) const
+	{
+		FSetSizeBoxHeightOverrideResult Result;
+		Result.HeightOverride = FMath::Max(0.0f, InHeightOverride);
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		USizeBox* const SizeBoxWidget = Cast<USizeBox>(WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName)));
+		if (SizeBoxWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find USizeBox widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		SizeBoxWidget->SetFlags(RF_Transactional);
+		SizeBoxWidget->Modify();
+		SizeBoxWidget->SetHeightOverride(Result.HeightOverride);
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated size box height override but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated size box height override but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set height override on size box %s in %s to %.2f."),
+			*Result.WidgetName,
+			*AssetObjectPath,
+			Result.HeightOverride);
 		return Result;
 	}
 

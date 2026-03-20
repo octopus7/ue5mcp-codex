@@ -36,6 +36,7 @@ SET_WIDGET_BACKGROUND_BLUR_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_CORNER_RADIUS_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_PANEL_COLOR_TIMEOUT_SECONDS = 30.0
+SET_SIZE_BOX_HEIGHT_OVERRIDE_TIMEOUT_SECONDS = 30.0
 SET_POPUP_OPEN_ELASTIC_SCALE_TIMEOUT_SECONDS = 30.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
@@ -51,6 +52,7 @@ SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME = "ue_set_widget_background_blur"
 SET_WIDGET_CORNER_RADIUS_TOOL_NAME = "ue_set_widget_corner_radius"
 SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME = "ue_set_widget_image_texture"
 SET_WIDGET_PANEL_COLOR_TOOL_NAME = "ue_set_widget_panel_color"
+SET_SIZE_BOX_HEIGHT_OVERRIDE_TOOL_NAME = "ue_set_size_box_height_override"
 SET_POPUP_OPEN_ELASTIC_SCALE_TOOL_NAME = "ue_set_popup_open_elastic_scale"
 
 
@@ -769,6 +771,68 @@ def build_set_widget_panel_color_tool_definition() -> dict[str, Any]:
                 "green",
                 "blue",
                 "alpha",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_size_box_height_override_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_SIZE_BOX_HEIGHT_OVERRIDE_TOOL_NAME,
+        "title": "Set SizeBox height override",
+        "description": "Set the Height Override value on a named USizeBox inside a Widget Blueprint.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the target USizeBox widget.",
+                },
+                "heightOverride": {
+                    "type": "number",
+                    "description": "Height Override in Slate units.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "heightOverride"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "heightOverride": {"type": "number"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "heightOverride",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -2014,6 +2078,87 @@ def build_set_widget_panel_color_tool_error(
     }
 
 
+def build_set_size_box_height_override_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_size_box_height_override.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_size_box_height_override.widgetName must be a non-empty string.")
+
+    height_override = arguments.get("heightOverride")
+    if not isinstance(height_override, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_size_box_height_override.heightOverride must be a number.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_size_box_height_override.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_size_box_height_override",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "heightOverride": float(height_override),
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_SIZE_BOX_HEIGHT_OVERRIDE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "heightOverride": float(bridge_result.get("heightOverride", 0.0)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"height={structured_content['heightOverride']:.3f} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_size_box_height_override_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "heightOverride": 0.0,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_set_popup_open_elastic_scale_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -2469,6 +2614,7 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_set_widget_background_blur to convert/configure a widget as a BackgroundBlur panel, "
                 "ue_set_widget_corner_radius to set rounded corners on supported panel widgets, "
                 "ue_set_widget_panel_color to set RGBA color on supported panel widgets, "
+                "ue_set_size_box_height_override to set Height Override on a USizeBox in a Widget Blueprint, "
                 "ue_set_popup_open_elastic_scale to configure popup open elastic scale animation defaults, "
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
@@ -2495,6 +2641,7 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_set_widget_background_blur_tool_definition(),
                 build_set_widget_corner_radius_tool_definition(),
                 build_set_widget_panel_color_tool_definition(),
+                build_set_size_box_height_override_tool_definition(),
                 build_set_popup_open_elastic_scale_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
                 build_set_blueprint_class_property_tool_definition(),
@@ -2735,6 +2882,27 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
             result = build_set_widget_panel_color_tool_success(tool_arguments)
         except UeBridgeError as exc:
             result = build_set_widget_panel_color_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_SIZE_BOX_HEIGHT_OVERRIDE_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        height_override = tool_arguments.get("heightOverride")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_size_box_height_override.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_size_box_height_override.widgetName must be a string.")
+        if height_override is not None and not isinstance(height_override, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_size_box_height_override.heightOverride must be a number.")
+        try:
+            result = build_set_size_box_height_override_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_size_box_height_override_tool_error(
                 str(exc),
                 exc.editor_reachable,
                 str(asset_path or ""),
