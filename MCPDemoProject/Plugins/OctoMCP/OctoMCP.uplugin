@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "OctoMCP",
+	"Description": "Editor bridge for the OctoMCP stdio MCP server.",
+	"Category": "Scripting",
+	"CreatedBy": "OpenAI Codex",
+	"CreatedByURL": "https://openai.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EnabledByDefault": true,
+	"CanContainContent": false,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "OctoMCP",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
