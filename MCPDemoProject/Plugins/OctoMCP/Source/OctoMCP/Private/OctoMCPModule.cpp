@@ -17,10 +17,15 @@
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
 #include "Editor.h"
+#include "Engine/Blueprint.h"
+#include "Factories/BlueprintFactory.h"
+#include "GameMapsSettings.h"
+#include "GameFramework/GameModeBase.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Modules/ModuleManager.h"
 #include "Subsystems/EditorAssetSubsystem.h"
+#include "UObject/UnrealType.h"
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintFactory.h"
 
@@ -55,8 +60,11 @@ namespace OctoMCP
 	const TCHAR* const CommandRoute = TEXT("/api/v1/command");
 	const TCHAR* const CommandGetVersionInfo = TEXT("get_version_info");
 	const TCHAR* const CommandLiveCodingCompile = TEXT("live_coding_compile");
+	const TCHAR* const CommandCreateBlueprintAsset = TEXT("create_blueprint_asset");
 	const TCHAR* const CommandCreateWidgetBlueprint = TEXT("create_widget_blueprint");
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
+	const TCHAR* const CommandSetBlueprintClassProperty = TEXT("set_blueprint_class_property");
+	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
 }
 
 namespace
@@ -101,6 +109,21 @@ namespace
 		FString ParentClassName;
 	};
 
+	struct FCreateBlueprintAssetResult
+	{
+		bool bCreated = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString ParentClassPath;
+		FString ParentClassName;
+		FString GeneratedClassPath;
+	};
+
 	struct FScaffoldWidgetBlueprintResult
 	{
 		bool bSaved = false;
@@ -111,6 +134,28 @@ namespace
 		FString PackagePath;
 		FString AssetName;
 		FString ScaffoldType;
+	};
+
+	struct FSetBlueprintClassPropertyResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString PropertyName;
+		FString ValueClassPath;
+		FString ValueClassName;
+	};
+
+	struct FSetGlobalDefaultGameModeResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString GameModeClassPath;
 	};
 }
 
@@ -304,6 +349,69 @@ private:
 			return true;
 		}
 
+		if (Command == OctoMCP::CommandCreateBlueprintAsset)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ParentClassPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("parentClassPath"), ParentClassPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, ParentClassPath, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(TEXT("result"), BuildCreateBlueprintAssetObject(AssetPath, ParentClassPath, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
 		if (Command == OctoMCP::CommandCreateWidgetBlueprint)
 		{
 			TSharedPtr<FJsonObject> ArgumentsObject;
@@ -430,6 +538,136 @@ private:
 			return true;
 		}
 
+		if (Command == OctoMCP::CommandSetBlueprintClassProperty)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString PropertyName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("propertyName"), PropertyName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ValueClassPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("valueClassPath"), ValueClassPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, PropertyName, ValueClassPath, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetBlueprintClassPropertyObject(AssetPath, PropertyName, ValueClassPath, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetGlobalDefaultGameMode)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString GameModeClassPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("gameModeClassPath"), GameModeClassPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveConfig = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveConfig"), bSaveConfig, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, GameModeClassPath, bSaveConfig]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetGlobalDefaultGameModeObject(GameModeClassPath, bSaveConfig));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
 		OnComplete(CreateErrorResponse(
 			EHttpServerResponseCodes::BadRequest,
 			TEXT("unknown_command"),
@@ -495,6 +733,142 @@ private:
 #endif
 
 		return ResultObject;
+	}
+
+	TSharedRef<FJsonObject> BuildCreateBlueprintAssetObject(
+		const FString& AssetPath,
+		const FString& ParentClassPath,
+		const bool bSaveAsset) const
+	{
+		const FCreateBlueprintAssetResult CreateResult =
+			CreateBlueprintAsset(AssetPath, ParentClassPath, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("created"), CreateResult.bCreated);
+		ResultObject->SetBoolField(TEXT("saved"), CreateResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), CreateResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), CreateResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), CreateResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), CreateResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), CreateResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), CreateResult.AssetName);
+		ResultObject->SetStringField(TEXT("parentClassPath"), CreateResult.ParentClassPath);
+		ResultObject->SetStringField(TEXT("parentClassName"), CreateResult.ParentClassName);
+		ResultObject->SetStringField(TEXT("generatedClassPath"), CreateResult.GeneratedClassPath);
+		return ResultObject;
+	}
+
+	FCreateBlueprintAssetResult CreateBlueprintAsset(
+		const FString& InAssetPath,
+		const FString& InParentClassPath,
+		const bool bSaveAsset) const
+	{
+		FCreateBlueprintAssetResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+
+		UClass* ParentClass = ResolveClassReference(InParentClassPath, nullptr, Result.ParentClassPath, ErrorMessage);
+		if (ParentClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.ParentClassName = ParentClass->GetName();
+
+		if (ParentClass->IsChildOf(UUserWidget::StaticClass()))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Parent class %s derives from UUserWidget. Use create_widget_blueprint instead."),
+				*Result.ParentClassPath);
+			return Result;
+		}
+
+		if (!FKismetEditorUtilities::CanCreateBlueprintOfClass(ParentClass))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Cannot create a Blueprint from parent class: %s"),
+				*Result.ParentClassPath);
+			return Result;
+		}
+
+		if (FindObject<UObject>(nullptr, *AssetObjectPath) != nullptr || LoadObject<UObject>(nullptr, *AssetObjectPath) != nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Asset already exists: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UBlueprintFactory* const Factory = NewObject<UBlueprintFactory>();
+		Factory->BlueprintType = BPTYPE_Normal;
+		Factory->ParentClass = ParentClass;
+		Factory->bEditAfterNew = false;
+		Factory->bSkipClassPicker = true;
+
+		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools")).Get();
+		UObject* const NewAsset =
+			AssetTools.CreateAsset(Result.AssetName, Result.PackagePath, UBlueprint::StaticClass(), Factory, TEXT("OctoMCP"));
+		UBlueprint* const NewBlueprint = Cast<UBlueprint>(NewAsset);
+		if (NewBlueprint == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Failed to create Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		Result.bCreated = true;
+		Result.AssetObjectPath = NewBlueprint->GetPathName();
+		Result.AssetPath = NewBlueprint->GetOutermost()->GetName();
+		NewBlueprint->MarkPackageDirty();
+
+		FKismetEditorUtilities::CompileBlueprint(NewBlueprint);
+		if (NewBlueprint->GeneratedClass != nullptr)
+		{
+			Result.GeneratedClassPath = NewBlueprint->GeneratedClass->GetPathName();
+		}
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Created Blueprint but could not access the EditorAssetSubsystem to save it: %s"),
+					*Result.AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(NewBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Created Blueprint but failed to save it: %s"),
+					*Result.AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Created Blueprint %s using parent class %s."),
+			*Result.AssetObjectPath,
+			*Result.ParentClassPath);
+		return Result;
 	}
 
 	TSharedRef<FJsonObject> BuildCreateWidgetBlueprintObject(
@@ -717,6 +1091,304 @@ private:
 
 		OutError = FString::Printf(TEXT("Could not resolve parent widget class: %s"), *TrimmedClassPath);
 		return nullptr;
+	}
+
+	UClass* ResolveClassReference(
+		const FString& InClassPath,
+		const UClass* RequiredBaseClass,
+		FString& OutResolvedClassPath,
+		FString& OutError) const
+	{
+		const FString TrimmedClassPath = InClassPath.TrimStartAndEnd();
+		if (TrimmedClassPath.IsEmpty())
+		{
+			OutError = TEXT("classPath must not be empty.");
+			return nullptr;
+		}
+
+		TArray<FString> CandidateClassPaths;
+		CandidateClassPaths.AddUnique(TrimmedClassPath);
+
+		if (!TrimmedClassPath.StartsWith(TEXT("/")))
+		{
+			FString NativeClassName = TrimmedClassPath;
+			if ((NativeClassName.StartsWith(TEXT("A")) || NativeClassName.StartsWith(TEXT("U"))) && NativeClassName.Len() > 1)
+			{
+				NativeClassName.RightChopInline(1, EAllowShrinking::No);
+			}
+
+			CandidateClassPaths.AddUnique(FString::Printf(TEXT("/Script/%s.%s"), FApp::GetProjectName(), *NativeClassName));
+		}
+
+		FString BlueprintAssetPath;
+		FString IgnoredPackagePath;
+		FString IgnoredAssetName;
+		FString BlueprintAssetObjectPath;
+		FString NormalizedAssetError;
+		if (NormalizeWidgetBlueprintAssetPath(
+				TrimmedClassPath,
+				BlueprintAssetPath,
+				IgnoredPackagePath,
+				IgnoredAssetName,
+				BlueprintAssetObjectPath,
+				NormalizedAssetError))
+		{
+			CandidateClassPaths.AddUnique(FString::Printf(TEXT("%s.%s_C"), *BlueprintAssetPath, *IgnoredAssetName));
+		}
+
+		for (const FString& CandidateClassPath : CandidateClassPaths)
+		{
+			UClass* ResolvedClass = FindObject<UClass>(nullptr, *CandidateClassPath);
+			if (ResolvedClass == nullptr)
+			{
+				ResolvedClass = LoadClass<UObject>(nullptr, *CandidateClassPath, nullptr, LOAD_None, nullptr);
+			}
+
+			if (ResolvedClass == nullptr)
+			{
+				continue;
+			}
+
+			if (RequiredBaseClass != nullptr && !ResolvedClass->IsChildOf(RequiredBaseClass))
+			{
+				OutError = FString::Printf(
+					TEXT("Resolved class %s does not derive from required base class %s."),
+					*ResolvedClass->GetPathName(),
+					*RequiredBaseClass->GetPathName());
+				return nullptr;
+			}
+
+			OutResolvedClassPath = ResolvedClass->GetPathName();
+			return ResolvedClass;
+		}
+
+		if (!BlueprintAssetObjectPath.IsEmpty())
+		{
+			UBlueprint* BlueprintAsset = LoadObject<UBlueprint>(nullptr, *BlueprintAssetObjectPath);
+			if (BlueprintAsset != nullptr)
+			{
+				if (BlueprintAsset->GeneratedClass == nullptr)
+				{
+					FKismetEditorUtilities::CompileBlueprint(BlueprintAsset);
+				}
+
+				if (UClass* const GeneratedClass = BlueprintAsset->GeneratedClass)
+				{
+					if (RequiredBaseClass != nullptr && !GeneratedClass->IsChildOf(RequiredBaseClass))
+					{
+						OutError = FString::Printf(
+							TEXT("Resolved class %s does not derive from required base class %s."),
+							*GeneratedClass->GetPathName(),
+							*RequiredBaseClass->GetPathName());
+						return nullptr;
+					}
+
+					OutResolvedClassPath = GeneratedClass->GetPathName();
+					return GeneratedClass;
+				}
+			}
+		}
+
+		OutError = FString::Printf(TEXT("Could not resolve class reference: %s"), *TrimmedClassPath);
+		return nullptr;
+	}
+
+	TSharedRef<FJsonObject> BuildSetBlueprintClassPropertyObject(
+		const FString& AssetPath,
+		const FString& PropertyName,
+		const FString& ValueClassPath,
+		const bool bSaveAsset) const
+	{
+		const FSetBlueprintClassPropertyResult SetResult =
+			SetBlueprintClassPropertyValue(AssetPath, PropertyName, ValueClassPath, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("propertyName"), SetResult.PropertyName);
+		ResultObject->SetStringField(TEXT("valueClassPath"), SetResult.ValueClassPath);
+		ResultObject->SetStringField(TEXT("valueClassName"), SetResult.ValueClassName);
+		return ResultObject;
+	}
+
+	FSetBlueprintClassPropertyResult SetBlueprintClassPropertyValue(
+		const FString& InAssetPath,
+		const FString& InPropertyName,
+		const FString& InValueClassPath,
+		const bool bSaveAsset) const
+	{
+		FSetBlueprintClassPropertyResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.PropertyName = InPropertyName.TrimStartAndEnd();
+
+		if (Result.PropertyName.IsEmpty())
+		{
+			Result.Message = TEXT("propertyName must not be empty.");
+			return Result;
+		}
+
+		UBlueprint* const BlueprintAsset = LoadObject<UBlueprint>(nullptr, *AssetObjectPath);
+		if (BlueprintAsset == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		FKismetEditorUtilities::CompileBlueprint(BlueprintAsset);
+		if (BlueprintAsset->GeneratedClass == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Blueprint asset does not have a generated class after compile: %s"),
+				*AssetObjectPath);
+			return Result;
+		}
+
+		FClassProperty* const ClassProperty =
+			CastField<FClassProperty>(BlueprintAsset->GeneratedClass->FindPropertyByName(*Result.PropertyName));
+		if (ClassProperty == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Blueprint class property %s was not found on %s."),
+				*Result.PropertyName,
+				*BlueprintAsset->GeneratedClass->GetPathName());
+			return Result;
+		}
+
+		UClass* const ValueClass = ResolveClassReference(InValueClassPath, ClassProperty->MetaClass, Result.ValueClassPath, ErrorMessage);
+		if (ValueClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.ValueClassName = ValueClass->GetName();
+
+		UObject* const BlueprintDefaultObject = BlueprintAsset->GeneratedClass->GetDefaultObject();
+		if (BlueprintDefaultObject == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Blueprint generated class does not have a default object: %s"),
+				*BlueprintAsset->GeneratedClass->GetPathName());
+			return Result;
+		}
+
+		BlueprintAsset->Modify();
+		BlueprintDefaultObject->SetFlags(RF_Transactional);
+		BlueprintDefaultObject->Modify();
+		ClassProperty->SetObjectPropertyValue_InContainer(BlueprintDefaultObject, ValueClass);
+
+		BlueprintAsset->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(BlueprintAsset);
+		FKismetEditorUtilities::CompileBlueprint(BlueprintAsset);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated Blueprint class property but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(BlueprintAsset, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated Blueprint class property but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set Blueprint class property %s on %s to %s."),
+			*Result.PropertyName,
+			*AssetObjectPath,
+			*Result.ValueClassPath);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetGlobalDefaultGameModeObject(
+		const FString& GameModeClassPath,
+		const bool bSaveConfig) const
+	{
+		const FSetGlobalDefaultGameModeResult SetResult =
+			SetGlobalDefaultGameMode(GameModeClassPath, bSaveConfig);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("gameModeClassPath"), SetResult.GameModeClassPath);
+		return ResultObject;
+	}
+
+	FSetGlobalDefaultGameModeResult SetGlobalDefaultGameMode(
+		const FString& InGameModeClassPath,
+		const bool bSaveConfig) const
+	{
+		FSetGlobalDefaultGameModeResult Result;
+
+		FString ErrorMessage;
+		UClass* const GameModeClass =
+			ResolveClassReference(InGameModeClassPath, AGameModeBase::StaticClass(), Result.GameModeClassPath, ErrorMessage);
+		if (GameModeClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		UGameMapsSettings::SetGlobalDefaultGameMode(Result.GameModeClassPath);
+
+		if (bSaveConfig)
+		{
+			UGameMapsSettings* const GameMapsSettings = GetMutableDefault<UGameMapsSettings>();
+			if (GameMapsSettings == nullptr)
+			{
+				Result.Message = TEXT("Could not access GameMapsSettings to save the default game mode.");
+				return Result;
+			}
+
+			GameMapsSettings->SaveConfig();
+			Result.bSaved = GameMapsSettings->TryUpdateDefaultConfigFile(TEXT(""), false);
+			if (!Result.bSaved)
+			{
+				Result.Message = TEXT("Updated the default game mode in memory but failed to write DefaultEngine.ini.");
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set the global default game mode to %s."),
+			*Result.GameModeClassPath);
+		return Result;
 	}
 
 	TSharedRef<FJsonObject> BuildScaffoldWidgetBlueprintObject(
@@ -1050,6 +1722,30 @@ private:
 		UHorizontalBox* const ButtonContainer = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("ButtonContainer"));
 		RegisterBindableWidget(WidgetBlueprint, ButtonContainer);
 		BarFrame->AddChild(ButtonContainer);
+
+		UButton* const TestPopupOpenButton =
+			WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("TestPopupOpenButton"));
+		TestPopupOpenButton->SetBackgroundColor(FLinearColor(0.19f, 0.34f, 0.73f, 1.0f));
+		RegisterBindableWidget(WidgetBlueprint, TestPopupOpenButton);
+
+		if (UHorizontalBoxSlot* const TestPopupOpenButtonSlot = ButtonContainer->AddChildToHorizontalBox(TestPopupOpenButton))
+		{
+			TestPopupOpenButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+			TestPopupOpenButtonSlot->SetHorizontalAlignment(HAlign_Left);
+			TestPopupOpenButtonSlot->SetVerticalAlignment(VAlign_Center);
+		}
+
+		UTextBlock* const TestPopupOpenButtonLabel =
+			WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TestPopupOpenButtonLabel"));
+		TestPopupOpenButtonLabel->SetText(FText::FromString(TEXT("Open Test Popup")));
+		TestPopupOpenButtonLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+
+		if (UButtonSlot* const TestPopupOpenButtonContentSlot = Cast<UButtonSlot>(TestPopupOpenButton->AddChild(TestPopupOpenButtonLabel)))
+		{
+			TestPopupOpenButtonContentSlot->SetPadding(FMargin(18.0f, 10.0f));
+			TestPopupOpenButtonContentSlot->SetHorizontalAlignment(HAlign_Center);
+			TestPopupOpenButtonContentSlot->SetVerticalAlignment(VAlign_Center);
+		}
 
 		return true;
 	}

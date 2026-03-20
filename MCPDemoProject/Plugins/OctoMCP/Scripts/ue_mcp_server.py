@@ -24,12 +24,18 @@ UE_PORT = 47831
 UE_TIMEOUT_SECONDS = 5.0
 LIVE_CODING_WAIT_TIMEOUT_SECONDS = 300.0
 LIVE_CODING_NOWAIT_TIMEOUT_SECONDS = 15.0
+CREATE_BLUEPRINT_ASSET_TIMEOUT_SECONDS = 30.0
 CREATE_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
+SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS = 30.0
+SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS = 15.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
+CREATE_BLUEPRINT_ASSET_TOOL_NAME = "ue_create_blueprint_asset"
 CREATE_WIDGET_BLUEPRINT_TOOL_NAME = "ue_create_widget_blueprint"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
+SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME = "ue_set_blueprint_class_property"
+SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME = "ue_set_global_default_game_mode"
 
 
 class JsonRpcError(Exception):
@@ -181,6 +187,76 @@ def build_live_coding_tool_definition() -> dict[str, Any]:
     }
 
 
+def build_create_blueprint_asset_tool_definition() -> dict[str, Any]:
+    return {
+        "name": CREATE_BLUEPRINT_ASSET_TOOL_NAME,
+        "title": "Create Unreal Blueprint asset",
+        "description": (
+            "Create a Blueprint asset in the running Unreal Editor using the specified "
+            "parent class. Use this for non-UMG Blueprint assets such as GameMode Blueprints."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": (
+                        "Asset package path such as /Game/Blueprints/BP_MCPDemoGameMode or "
+                        "full object path such as /Game/Blueprints/BP_MCPDemoGameMode.BP_MCPDemoGameMode."
+                    ),
+                },
+                "parentClassPath": {
+                    "type": "string",
+                    "description": (
+                        "Parent class path such as /Script/MCPDemoProject.MCPDemoGameMode."
+                    ),
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the newly created Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "parentClassPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "created": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "parentClassPath": {"type": "string"},
+                "parentClassName": {"type": "string"},
+                "generatedClassPath": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "created",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "parentClassPath",
+                "parentClassName",
+                "generatedClassPath",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
 def build_create_widget_blueprint_tool_definition() -> dict[str, Any]:
     return {
         "name": CREATE_WIDGET_BLUEPRINT_TOOL_NAME,
@@ -305,6 +381,122 @@ def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
                 "packagePath",
                 "assetName",
                 "scaffoldType",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_blueprint_class_property_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME,
+        "title": "Set Blueprint class property",
+        "description": (
+            "Set a Blueprint or Widget Blueprint class-reference default property to a target class."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Blueprint asset path to update.",
+                },
+                "propertyName": {
+                    "type": "string",
+                    "description": "Target class-reference property name on the Blueprint generated class.",
+                },
+                "valueClassPath": {
+                    "type": "string",
+                    "description": (
+                        "Class path or Blueprint asset path to assign. For Blueprint assets, the generated "
+                        "class will be resolved automatically."
+                    ),
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "propertyName", "valueClassPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "propertyName": {"type": "string"},
+                "valueClassPath": {"type": "string"},
+                "valueClassName": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "propertyName",
+                "valueClassPath",
+                "valueClassName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_global_default_game_mode_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME,
+        "title": "Set Unreal default game mode",
+        "description": "Set the project's global default game mode to the specified GameMode class.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "gameModeClassPath": {
+                    "type": "string",
+                    "description": (
+                        "GameMode class path or GameMode Blueprint asset path. Blueprint assets will resolve "
+                        "to their generated class automatically."
+                    ),
+                },
+                "saveConfig": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Write the updated default game mode to config before responding.",
+                },
+            },
+            "required": ["gameModeClassPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "gameModeClassPath": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "gameModeClassPath",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -503,6 +695,86 @@ def build_live_coding_tool_error(message: str, editor_reachable: bool, wait_for_
     }
 
 
+def build_create_blueprint_asset_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_create_blueprint_asset.assetPath must be a non-empty string.")
+
+    parent_class_path = arguments.get("parentClassPath")
+    if not isinstance(parent_class_path, str) or not parent_class_path.strip():
+        raise JsonRpcError(-32602, "ue_create_blueprint_asset.parentClassPath must be a non-empty string.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_create_blueprint_asset.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "create_blueprint_asset",
+        {
+            "assetPath": asset_path,
+            "parentClassPath": parent_class_path,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=CREATE_BLUEPRINT_ASSET_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "created": bool(bridge_result.get("created", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "parentClassPath": str(bridge_result.get("parentClassPath", "")),
+        "parentClassName": str(bridge_result.get("parentClassName", "")),
+        "generatedClassPath": str(bridge_result.get("generatedClassPath", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"created={structured_content['created']} | "
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"parent={structured_content['parentClassPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_create_blueprint_asset_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, parent_class_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "created": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "parentClassPath": parent_class_path,
+        "parentClassName": "",
+        "generatedClassPath": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_create_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -657,6 +929,148 @@ def build_scaffold_widget_blueprint_tool_error(
     }
 
 
+def build_set_blueprint_class_property_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_blueprint_class_property.assetPath must be a non-empty string.")
+
+    property_name = arguments.get("propertyName")
+    if not isinstance(property_name, str) or not property_name.strip():
+        raise JsonRpcError(-32602, "ue_set_blueprint_class_property.propertyName must be a non-empty string.")
+
+    value_class_path = arguments.get("valueClassPath")
+    if not isinstance(value_class_path, str) or not value_class_path.strip():
+        raise JsonRpcError(-32602, "ue_set_blueprint_class_property.valueClassPath must be a non-empty string.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_blueprint_class_property.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_blueprint_class_property",
+        {
+            "assetPath": asset_path,
+            "propertyName": property_name,
+            "valueClassPath": value_class_path,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "propertyName": str(bridge_result.get("propertyName", property_name)),
+        "valueClassPath": str(bridge_result.get("valueClassPath", "")),
+        "valueClassName": str(bridge_result.get("valueClassName", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"property={structured_content['propertyName']} | "
+        f"value={structured_content['valueClassPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_blueprint_class_property_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, property_name: str, value_class_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "propertyName": property_name,
+        "valueClassPath": value_class_path,
+        "valueClassName": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_set_global_default_game_mode_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    game_mode_class_path = arguments.get("gameModeClassPath")
+    if not isinstance(game_mode_class_path, str) or not game_mode_class_path.strip():
+        raise JsonRpcError(-32602, "ue_set_global_default_game_mode.gameModeClassPath must be a non-empty string.")
+
+    save_config = arguments.get("saveConfig", True)
+    if not isinstance(save_config, bool):
+        raise JsonRpcError(-32602, "ue_set_global_default_game_mode.saveConfig must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_global_default_game_mode",
+        {
+            "gameModeClassPath": game_mode_class_path,
+            "saveConfig": save_config,
+        },
+        timeout_seconds=SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "gameModeClassPath": str(bridge_result.get("gameModeClassPath", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"gameMode={structured_content['gameModeClassPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_global_default_game_mode_tool_error(
+    message: str, editor_reachable: bool, game_mode_class_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "gameModeClassPath": game_mode_class_path,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
     if not isinstance(params, dict):
         raise JsonRpcError(-32602, "initialize params must be an object.")
@@ -680,8 +1094,11 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
             "instructions": (
                 "Call ue_get_version_info to verify connectivity, or "
                 "ue_live_coding_compile to trigger a Live Coding build in the running Unreal Editor, "
+                "ue_create_blueprint_asset to generate a non-UMG Blueprint asset from a parent class, "
                 "ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class, "
-                "or ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree."
+                "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
+                "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
+                "or ue_set_global_default_game_mode to update the project's default GameMode."
             ),
         },
     )
@@ -695,8 +1112,11 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
             "tools": [
                 build_version_tool_definition(),
                 build_live_coding_tool_definition(),
+                build_create_blueprint_asset_tool_definition(),
                 build_create_widget_blueprint_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
+                build_set_blueprint_class_property_tool_definition(),
+                build_set_global_default_game_mode_tool_definition(),
             ]
         },
     )
@@ -728,6 +1148,24 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
             result = build_live_coding_tool_success(tool_arguments)
         except UeBridgeError as exc:
             result = build_live_coding_tool_error(str(exc), exc.editor_reachable, wait_for_completion)
+        return make_response(message_id, result)
+
+    if tool_name == CREATE_BLUEPRINT_ASSET_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        parent_class_path = tool_arguments.get("parentClassPath", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_create_blueprint_asset.assetPath must be a string.")
+        if parent_class_path is not None and not isinstance(parent_class_path, str):
+            raise JsonRpcError(-32602, "ue_create_blueprint_asset.parentClassPath must be a string.")
+        try:
+            result = build_create_blueprint_asset_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_create_blueprint_asset_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(parent_class_path or ""),
+            )
         return make_response(message_id, result)
 
     if tool_name == CREATE_WIDGET_BLUEPRINT_TOOL_NAME:
@@ -763,6 +1201,42 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 exc.editor_reachable,
                 str(asset_path or ""),
                 str(scaffold_type or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        property_name = tool_arguments.get("propertyName", "")
+        value_class_path = tool_arguments.get("valueClassPath", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_blueprint_class_property.assetPath must be a string.")
+        if property_name is not None and not isinstance(property_name, str):
+            raise JsonRpcError(-32602, "ue_set_blueprint_class_property.propertyName must be a string.")
+        if value_class_path is not None and not isinstance(value_class_path, str):
+            raise JsonRpcError(-32602, "ue_set_blueprint_class_property.valueClassPath must be a string.")
+        try:
+            result = build_set_blueprint_class_property_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_blueprint_class_property_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(property_name or ""),
+                str(value_class_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME:
+        game_mode_class_path = tool_arguments.get("gameModeClassPath", "")
+        if game_mode_class_path is not None and not isinstance(game_mode_class_path, str):
+            raise JsonRpcError(-32602, "ue_set_global_default_game_mode.gameModeClassPath must be a string.")
+        try:
+            result = build_set_global_default_game_mode_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_global_default_game_mode_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(game_mode_class_path or ""),
             )
         return make_response(message_id, result)
 

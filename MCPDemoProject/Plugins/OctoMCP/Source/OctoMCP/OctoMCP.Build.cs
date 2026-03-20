@@ -13,6 +13,7 @@ public class OctoMCP : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
+				"EngineSettings",
 				"HTTPServer",
 				"Json",
 				"Projects",
