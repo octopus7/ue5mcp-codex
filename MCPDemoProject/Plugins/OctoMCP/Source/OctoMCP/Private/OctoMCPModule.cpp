@@ -82,6 +82,7 @@ namespace OctoMCP
 	const TCHAR* const CommandSetWidgetBackgroundBlur = TEXT("set_widget_background_blur");
 	const TCHAR* const CommandSetWidgetCornerRadius = TEXT("set_widget_corner_radius");
 	const TCHAR* const CommandSetWidgetPanelColor = TEXT("set_widget_panel_color");
+	const TCHAR* const CommandSetPopupOpenElasticScale = TEXT("set_popup_open_elastic_scale");
 	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
 }
 
@@ -241,6 +242,24 @@ namespace
 		FString AssetName;
 		FString WidgetName;
 		FString WidgetClassName;
+	};
+
+	struct FSetPopupOpenElasticScaleResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		bool bEnabled = false;
+		float Duration = 0.0f;
+		float StartScale = 1.0f;
+		float OscillationCount = 0.0f;
+		float PivotX = 0.5f;
+		float PivotY = 0.5f;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
 	};
 
 	struct FReorderWidgetChildResult
@@ -1174,6 +1193,162 @@ private:
 			return true;
 		}
 
+		if (Command == OctoMCP::CommandSetPopupOpenElasticScale)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bEnabled = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("enabled"), bEnabled, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName = TEXT("PopupCard");
+			if (ArgumentsObject.IsValid() && ArgumentsObject->HasField(TEXT("widgetName")))
+			{
+				if (!ArgumentsObject->TryGetStringField(TEXT("widgetName"), WidgetName))
+				{
+					OnComplete(CreateErrorResponse(
+						EHttpServerResponseCodes::BadRequest,
+						TEXT("invalid_arguments"),
+						TEXT("widgetName must be a string when provided."),
+						RequestId));
+					return true;
+				}
+
+				WidgetName = WidgetName.TrimStartAndEnd();
+				if (WidgetName.IsEmpty())
+				{
+					OnComplete(CreateErrorResponse(
+						EHttpServerResponseCodes::BadRequest,
+						TEXT("invalid_arguments"),
+						TEXT("widgetName must not be empty when provided."),
+						RequestId));
+					return true;
+				}
+			}
+
+			float Duration = 0.45f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("duration"), Duration, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float StartScale = 0.82f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("startScale"), StartScale, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float OscillationCount = 2.0f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("oscillationCount"), OscillationCount, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float PivotX = 0.5f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("pivotX"), PivotX, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float PivotY = 0.5f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("pivotY"), PivotY, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, bEnabled, WidgetName, Duration, StartScale, OscillationCount, PivotX, PivotY, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetPopupOpenElasticScaleObject(
+						AssetPath,
+						bEnabled,
+						WidgetName,
+						Duration,
+						StartScale,
+						OscillationCount,
+						PivotX,
+						PivotY,
+						bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
 		if (Command == OctoMCP::CommandSetWidgetImageTexture)
 		{
 			TSharedPtr<FJsonObject> ArgumentsObject;
@@ -1949,6 +2124,111 @@ private:
 		return TextureAsset;
 	}
 
+	bool SetBoolPropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		const bool bValue,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		FBoolProperty* const Property = CastField<FBoolProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName)));
+		if (Property == nullptr)
+		{
+			OutError = FString::Printf(
+				TEXT("Boolean property %s was not found on %s."),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		Property->SetPropertyValue_InContainer(ObjectInstance, bValue);
+		return true;
+	}
+
+	bool SetFloatPropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		const float Value,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		FFloatProperty* const Property = CastField<FFloatProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName)));
+		if (Property == nullptr)
+		{
+			OutError = FString::Printf(
+				TEXT("Float property %s was not found on %s."),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		Property->SetPropertyValue_InContainer(ObjectInstance, Value);
+		return true;
+	}
+
+	bool SetNamePropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		const FName Value,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		FNameProperty* const Property = CastField<FNameProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName)));
+		if (Property == nullptr)
+		{
+			OutError = FString::Printf(
+				TEXT("Name property %s was not found on %s."),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		Property->SetPropertyValue_InContainer(ObjectInstance, Value);
+		return true;
+	}
+
+	bool SetVector2DPropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		const FVector2D& Value,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		FStructProperty* const Property = CastField<FStructProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName)));
+		if (Property == nullptr || Property->Struct != TBaseStructure<FVector2D>::Get())
+		{
+			OutError = FString::Printf(
+				TEXT("FVector2D property %s was not found on %s."),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		if (FVector2D* const ValuePtr = Property->ContainerPtrToValuePtr<FVector2D>(ObjectInstance))
+		{
+			*ValuePtr = Value;
+			return true;
+		}
+
+		OutError = FString::Printf(
+			TEXT("Could not access FVector2D property %s on %s."),
+			PropertyName,
+			*OwnerClass->GetPathName());
+		return false;
+	}
+
 	TSharedRef<FJsonObject> BuildImportTextureAssetObject(
 		const FString& SourceFilePath,
 		const FString& AssetPath,
@@ -2718,6 +2998,202 @@ private:
 			Result.Green,
 			Result.Blue,
 			Result.Alpha);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetPopupOpenElasticScaleObject(
+		const FString& AssetPath,
+		const bool bEnabled,
+		const FString& WidgetName,
+		const float Duration,
+		const float StartScale,
+		const float OscillationCount,
+		const float PivotX,
+		const float PivotY,
+		const bool bSaveAsset) const
+	{
+		const FSetPopupOpenElasticScaleResult SetResult =
+			SetPopupOpenElasticScale(AssetPath, bEnabled, WidgetName, Duration, StartScale, OscillationCount, PivotX, PivotY, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetBoolField(TEXT("enabled"), SetResult.bEnabled);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetNumberField(TEXT("duration"), SetResult.Duration);
+		ResultObject->SetNumberField(TEXT("startScale"), SetResult.StartScale);
+		ResultObject->SetNumberField(TEXT("oscillationCount"), SetResult.OscillationCount);
+		ResultObject->SetNumberField(TEXT("pivotX"), SetResult.PivotX);
+		ResultObject->SetNumberField(TEXT("pivotY"), SetResult.PivotY);
+		return ResultObject;
+	}
+
+	FSetPopupOpenElasticScaleResult SetPopupOpenElasticScale(
+		const FString& InAssetPath,
+		const bool bEnabled,
+		const FString& InWidgetName,
+		const float InDuration,
+		const float InStartScale,
+		const float InOscillationCount,
+		const float InPivotX,
+		const float InPivotY,
+		const bool bSaveAsset) const
+	{
+		FSetPopupOpenElasticScaleResult Result;
+		Result.bEnabled = bEnabled;
+		Result.Duration = FMath::Max(InDuration, 0.05f);
+		Result.StartScale = FMath::Clamp(InStartScale, 0.10f, 1.00f);
+		Result.OscillationCount = FMath::Max(InOscillationCount, 0.50f);
+		Result.PivotX = FMath::Clamp(InPivotX, 0.0f, 1.0f);
+		Result.PivotY = FMath::Clamp(InPivotY, 0.0f, 1.0f);
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.WidgetName = TEXT("PopupCard");
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+		if (WidgetBlueprint->GeneratedClass == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget Blueprint asset does not have a generated class after compile: %s"),
+				*AssetObjectPath);
+			return Result;
+		}
+
+		FString PopupWidgetClassPath;
+		UClass* const PopupWidgetBaseClass =
+			ResolveClassReference(TEXT("UMCPPopupWidget"), UUserWidget::StaticClass(), PopupWidgetClassPath, ErrorMessage);
+		if (PopupWidgetBaseClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		if (!WidgetBlueprint->GeneratedClass->IsChildOf(PopupWidgetBaseClass))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget Blueprint %s does not derive from %s."),
+				*AssetObjectPath,
+				*PopupWidgetClassPath);
+			return Result;
+		}
+
+		UObject* const BlueprintDefaultObject = WidgetBlueprint->GeneratedClass->GetDefaultObject();
+		if (BlueprintDefaultObject == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget Blueprint generated class does not have a default object: %s"),
+				*WidgetBlueprint->GeneratedClass->GetPathName());
+			return Result;
+		}
+
+		WidgetBlueprint->Modify();
+		BlueprintDefaultObject->SetFlags(RF_Transactional);
+		BlueprintDefaultObject->Modify();
+
+		if (!SetBoolPropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("bPlayOpenElasticScaleAnimation"),
+				Result.bEnabled,
+				ErrorMessage) ||
+			!SetFloatPropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("OpenElasticScaleDuration"),
+				Result.Duration,
+				ErrorMessage) ||
+			!SetFloatPropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("OpenElasticStartScale"),
+				Result.StartScale,
+				ErrorMessage) ||
+			!SetFloatPropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("OpenElasticOscillationCount"),
+				Result.OscillationCount,
+				ErrorMessage) ||
+			!SetNamePropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("OpenElasticTargetWidgetName"),
+				FName(*Result.WidgetName),
+				ErrorMessage) ||
+			!SetVector2DPropertyValue(
+				WidgetBlueprint->GeneratedClass,
+				BlueprintDefaultObject,
+				TEXT("OpenElasticPivot"),
+				FVector2D(Result.PivotX, Result.PivotY),
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated popup open elastic scale settings but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated popup open elastic scale settings but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Configured popup open elastic scale on %s for widget %s."),
+			*AssetObjectPath,
+			*Result.WidgetName);
 		return Result;
 	}
 

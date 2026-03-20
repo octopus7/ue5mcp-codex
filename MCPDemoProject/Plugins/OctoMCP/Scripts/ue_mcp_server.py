@@ -36,6 +36,7 @@ SET_WIDGET_BACKGROUND_BLUR_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_CORNER_RADIUS_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_PANEL_COLOR_TIMEOUT_SECONDS = 30.0
+SET_POPUP_OPEN_ELASTIC_SCALE_TIMEOUT_SECONDS = 30.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
 CREATE_BLUEPRINT_ASSET_TOOL_NAME = "ue_create_blueprint_asset"
@@ -50,6 +51,7 @@ SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME = "ue_set_widget_background_blur"
 SET_WIDGET_CORNER_RADIUS_TOOL_NAME = "ue_set_widget_corner_radius"
 SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME = "ue_set_widget_image_texture"
 SET_WIDGET_PANEL_COLOR_TOOL_NAME = "ue_set_widget_panel_color"
+SET_POPUP_OPEN_ELASTIC_SCALE_TOOL_NAME = "ue_set_popup_open_elastic_scale"
 
 
 class JsonRpcError(Exception):
@@ -767,6 +769,108 @@ def build_set_widget_panel_color_tool_definition() -> dict[str, Any]:
                 "green",
                 "blue",
                 "alpha",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_popup_open_elastic_scale_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_POPUP_OPEN_ELASTIC_SCALE_TOOL_NAME,
+        "title": "Set popup open elastic scale",
+        "description": (
+            "Configure a UMCPPopupWidget-derived Widget Blueprint so its popup panel plays an elastic scale "
+            "animation when opened."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "enabled": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Enable or disable the popup open elastic scale animation.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "default": "PopupCard",
+                    "description": "Name of the widget inside the popup to animate.",
+                },
+                "duration": {
+                    "type": "number",
+                    "default": 0.45,
+                    "description": "Animation duration in seconds.",
+                },
+                "startScale": {
+                    "type": "number",
+                    "default": 0.82,
+                    "description": "Initial uniform scale before the elastic animation settles to 1.0.",
+                },
+                "oscillationCount": {
+                    "type": "number",
+                    "default": 2.0,
+                    "description": "How many elastic oscillations occur before the scale settles.",
+                },
+                "pivotX": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "Render transform pivot X in 0..1 space.",
+                },
+                "pivotY": {
+                    "type": "number",
+                    "default": 0.5,
+                    "description": "Render transform pivot Y in 0..1 space.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "enabled": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "duration": {"type": "number"},
+                "startScale": {"type": "number"},
+                "oscillationCount": {"type": "number"},
+                "pivotX": {"type": "number"},
+                "pivotY": {"type": "number"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "enabled",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "duration",
+                "startScale",
+                "oscillationCount",
+                "pivotX",
+                "pivotY",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -1910,6 +2014,126 @@ def build_set_widget_panel_color_tool_error(
     }
 
 
+def build_set_popup_open_elastic_scale_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.assetPath must be a non-empty string.")
+
+    enabled = arguments.get("enabled", True)
+    if not isinstance(enabled, bool):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.enabled must be a boolean.")
+
+    widget_name = arguments.get("widgetName", "PopupCard")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.widgetName must be a non-empty string.")
+
+    duration = arguments.get("duration", 0.45)
+    if not isinstance(duration, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.duration must be a number.")
+
+    start_scale = arguments.get("startScale", 0.82)
+    if not isinstance(start_scale, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.startScale must be a number.")
+
+    oscillation_count = arguments.get("oscillationCount", 2.0)
+    if not isinstance(oscillation_count, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.oscillationCount must be a number.")
+
+    pivot_x = arguments.get("pivotX", 0.5)
+    if not isinstance(pivot_x, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.pivotX must be a number.")
+
+    pivot_y = arguments.get("pivotY", 0.5)
+    if not isinstance(pivot_y, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.pivotY must be a number.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_popup_open_elastic_scale",
+        {
+            "assetPath": asset_path,
+            "enabled": enabled,
+            "widgetName": widget_name,
+            "duration": float(duration),
+            "startScale": float(start_scale),
+            "oscillationCount": float(oscillation_count),
+            "pivotX": float(pivot_x),
+            "pivotY": float(pivot_y),
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_POPUP_OPEN_ELASTIC_SCALE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "enabled": bool(bridge_result.get("enabled", enabled)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "duration": float(bridge_result.get("duration", 0.0)),
+        "startScale": float(bridge_result.get("startScale", 0.0)),
+        "oscillationCount": float(bridge_result.get("oscillationCount", 0.0)),
+        "pivotX": float(bridge_result.get("pivotX", 0.0)),
+        "pivotY": float(bridge_result.get("pivotY", 0.0)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"enabled={structured_content['enabled']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"duration={structured_content['duration']:.3f}s | "
+        f"startScale={structured_content['startScale']:.3f} | "
+        f"oscillations={structured_content['oscillationCount']:.3f} | "
+        f"pivot=({structured_content['pivotX']:.3f}, {structured_content['pivotY']:.3f}) | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_popup_open_elastic_scale_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "enabled": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "duration": 0.0,
+        "startScale": 0.0,
+        "oscillationCount": 0.0,
+        "pivotX": 0.0,
+        "pivotY": 0.0,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -2245,6 +2469,7 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_set_widget_background_blur to convert/configure a widget as a BackgroundBlur panel, "
                 "ue_set_widget_corner_radius to set rounded corners on supported panel widgets, "
                 "ue_set_widget_panel_color to set RGBA color on supported panel widgets, "
+                "ue_set_popup_open_elastic_scale to configure popup open elastic scale animation defaults, "
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
                 "ue_set_widget_image_texture to assign a texture to a UImage in a Widget Blueprint, "
@@ -2270,6 +2495,7 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_set_widget_background_blur_tool_definition(),
                 build_set_widget_corner_radius_tool_definition(),
                 build_set_widget_panel_color_tool_definition(),
+                build_set_popup_open_elastic_scale_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
                 build_set_blueprint_class_property_tool_definition(),
                 build_set_widget_image_texture_tool_definition(),
@@ -2509,6 +2735,39 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
             result = build_set_widget_panel_color_tool_success(tool_arguments)
         except UeBridgeError as exc:
             result = build_set_widget_panel_color_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_POPUP_OPEN_ELASTIC_SCALE_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "PopupCard")
+        duration = tool_arguments.get("duration", 0.45)
+        start_scale = tool_arguments.get("startScale", 0.82)
+        oscillation_count = tool_arguments.get("oscillationCount", 2.0)
+        pivot_x = tool_arguments.get("pivotX", 0.5)
+        pivot_y = tool_arguments.get("pivotY", 0.5)
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.widgetName must be a string.")
+        if duration is not None and not isinstance(duration, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.duration must be a number.")
+        if start_scale is not None and not isinstance(start_scale, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.startScale must be a number.")
+        if oscillation_count is not None and not isinstance(oscillation_count, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.oscillationCount must be a number.")
+        if pivot_x is not None and not isinstance(pivot_x, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.pivotX must be a number.")
+        if pivot_y is not None and not isinstance(pivot_y, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_popup_open_elastic_scale.pivotY must be a number.")
+        try:
+            result = build_set_popup_open_elastic_scale_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_popup_open_elastic_scale_tool_error(
                 str(exc),
                 exc.editor_reachable,
                 str(asset_path or ""),
