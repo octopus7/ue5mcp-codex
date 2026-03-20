@@ -1,9 +1,11 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Async/Async.h"
+#include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetToolsModule.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
+#include "EditorFramework/AssetImportData.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
@@ -20,9 +22,12 @@
 #include "Components/VerticalBoxSlot.h"
 #include "Editor.h"
 #include "Engine/Blueprint.h"
+#include "Engine/Texture2D.h"
 #include "Factories/BlueprintFactory.h"
+#include "Factories/TextureFactory.h"
 #include "GameMapsSettings.h"
 #include "GameFramework/GameModeBase.h"
+#include "HAL/FileManager.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Modules/ModuleManager.h"
@@ -41,7 +46,9 @@
 #include "Interfaces/IPluginManager.h"
 #include "Misc/App.h"
 #include "Misc/EngineVersion.h"
+#include "Misc/FileHelper.h"
 #include "Misc/PackageName.h"
+#include "Misc/Paths.h"
 #include "PluginDescriptor.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -64,9 +71,11 @@ namespace OctoMCP
 	const TCHAR* const CommandLiveCodingCompile = TEXT("live_coding_compile");
 	const TCHAR* const CommandCreateBlueprintAsset = TEXT("create_blueprint_asset");
 	const TCHAR* const CommandCreateWidgetBlueprint = TEXT("create_widget_blueprint");
+	const TCHAR* const CommandImportTextureAsset = TEXT("import_texture_asset");
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
 	const TCHAR* const CommandSetBlueprintClassProperty = TEXT("set_blueprint_class_property");
 	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
+	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
 }
 
 namespace
@@ -138,6 +147,19 @@ namespace
 		FString ScaffoldType;
 	};
 
+	struct FImportTextureAssetResult
+	{
+		bool bImported = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString SourceFilePath;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+	};
+
 	struct FSetBlueprintClassPropertyResult
 	{
 		bool bSaved = false;
@@ -150,6 +172,19 @@ namespace
 		FString PropertyName;
 		FString ValueClassPath;
 		FString ValueClassName;
+	};
+
+	struct FSetWidgetImageTextureResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString TextureAssetPath;
 	};
 
 	struct FSetGlobalDefaultGameModeResult
@@ -477,6 +512,82 @@ private:
 			return true;
 		}
 
+		if (Command == OctoMCP::CommandImportTextureAsset)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString SourceFilePath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("sourceFilePath"), SourceFilePath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bReplaceExisting = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("replaceExisting"), bReplaceExisting, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, SourceFilePath, AssetPath, bReplaceExisting, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildImportTextureAssetObject(SourceFilePath, AssetPath, bReplaceExisting, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
 		if (Command == OctoMCP::CommandScaffoldWidgetBlueprint)
 		{
 			TSharedPtr<FJsonObject> ArgumentsObject;
@@ -534,6 +645,95 @@ private:
 					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
 				}
 				ResponseObject->SetObjectField(TEXT("result"), BuildScaffoldWidgetBlueprintObject(AssetPath, ScaffoldType, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetWidgetImageTexture)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString TextureAssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("textureAssetPath"), TextureAssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bMatchTextureSize = false;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("matchTextureSize"), bMatchTextureSize, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, TextureAssetPath, bMatchTextureSize, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetWidgetImageTextureObject(AssetPath, WidgetName, TextureAssetPath, bMatchTextureSize, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -1193,6 +1393,329 @@ private:
 
 		OutError = FString::Printf(TEXT("Could not resolve class reference: %s"), *TrimmedClassPath);
 		return nullptr;
+	}
+
+	UTexture2D* ResolveTextureAsset(
+		const FString& InTextureAssetPath,
+		FString& OutResolvedAssetPath,
+		FString& OutError) const
+	{
+		FString AssetPackageName;
+		FString PackagePath;
+		FString AssetName;
+		FString AssetObjectPath;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InTextureAssetPath,
+				AssetPackageName,
+				PackagePath,
+				AssetName,
+				AssetObjectPath,
+				OutError))
+		{
+			return nullptr;
+		}
+
+		UTexture2D* const TextureAsset = LoadObject<UTexture2D>(nullptr, *AssetObjectPath);
+		if (TextureAsset == nullptr)
+		{
+			OutError = FString::Printf(TEXT("Could not load texture asset: %s"), *AssetObjectPath);
+			return nullptr;
+		}
+
+		OutResolvedAssetPath = AssetObjectPath;
+		return TextureAsset;
+	}
+
+	TSharedRef<FJsonObject> BuildImportTextureAssetObject(
+		const FString& SourceFilePath,
+		const FString& AssetPath,
+		const bool bReplaceExisting,
+		const bool bSaveAsset) const
+	{
+		const FImportTextureAssetResult ImportResult =
+			ImportTextureAsset(SourceFilePath, AssetPath, bReplaceExisting, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("imported"), ImportResult.bImported);
+		ResultObject->SetBoolField(TEXT("saved"), ImportResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), ImportResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), ImportResult.Message);
+		ResultObject->SetStringField(TEXT("sourceFilePath"), ImportResult.SourceFilePath);
+		ResultObject->SetStringField(TEXT("assetPath"), ImportResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), ImportResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), ImportResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), ImportResult.AssetName);
+		return ResultObject;
+	}
+
+	FImportTextureAssetResult ImportTextureAsset(
+		const FString& InSourceFilePath,
+		const FString& InAssetPath,
+		const bool bReplaceExisting,
+		const bool bSaveAsset) const
+	{
+		FImportTextureAssetResult Result;
+
+		Result.SourceFilePath = FPaths::ConvertRelativePathToFull(InSourceFilePath.TrimStartAndEnd());
+		if (Result.SourceFilePath.IsEmpty())
+		{
+			Result.Message = TEXT("sourceFilePath must not be empty.");
+			return Result;
+		}
+
+		if (!FPaths::FileExists(Result.SourceFilePath))
+		{
+			Result.Message = FString::Printf(TEXT("Source file does not exist: %s"), *Result.SourceFilePath);
+			return Result;
+		}
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		UPackage* const TexturePackage = CreatePackage(*Result.AssetPath);
+		if (TexturePackage == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Failed to create texture package: %s"), *Result.AssetPath);
+			return Result;
+		}
+
+		TexturePackage->FullyLoad();
+
+		UTexture2D* const ExistingTexture = FindObject<UTexture2D>(TexturePackage, *Result.AssetName);
+		if (ExistingTexture != nullptr && !bReplaceExisting)
+		{
+			Result.Message = FString::Printf(TEXT("Texture asset already exists: %s"), *Result.AssetObjectPath);
+			return Result;
+		}
+
+		TArray<uint8> SourceFileData;
+		if (!FFileHelper::LoadFileToArray(SourceFileData, *Result.SourceFilePath) || SourceFileData.IsEmpty())
+		{
+			Result.Message = FString::Printf(TEXT("Failed to read source file: %s"), *Result.SourceFilePath);
+			return Result;
+		}
+
+		const FString FileExtension = FPaths::GetExtension(Result.SourceFilePath);
+		if (FileExtension.IsEmpty())
+		{
+			Result.Message = FString::Printf(TEXT("Could not determine file extension: %s"), *Result.SourceFilePath);
+			return Result;
+		}
+
+		UTextureFactory* const TextureFactory = NewObject<UTextureFactory>();
+		TextureFactory->AddToRoot();
+		UTextureFactory::SuppressImportOverwriteDialog(bReplaceExisting);
+
+		const uint8* TextureDataStart = SourceFileData.GetData();
+		UObject* const ImportedObject = TextureFactory->FactoryCreateBinary(
+			UTexture2D::StaticClass(),
+			TexturePackage,
+			*Result.AssetName,
+			RF_Standalone | RF_Public,
+			nullptr,
+			*FileExtension,
+			TextureDataStart,
+			TextureDataStart + SourceFileData.Num(),
+			GWarn);
+
+		TextureFactory->RemoveFromRoot();
+
+		UTexture2D* const ImportedTexture = Cast<UTexture2D>(ImportedObject);
+		if (ImportedTexture == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to import %s as a texture asset."),
+				*Result.SourceFilePath);
+			return Result;
+		}
+
+		Result.bImported = true;
+		Result.AssetObjectPath = ImportedTexture->GetPathName();
+		Result.AssetPath = ImportedTexture->GetOutermost()->GetName();
+		Result.PackagePath = FPackageName::GetLongPackagePath(Result.AssetPath);
+		Result.AssetName = FPackageName::GetLongPackageAssetName(Result.AssetPath);
+
+		if (ImportedTexture->AssetImportData != nullptr)
+		{
+			ImportedTexture->AssetImportData->Update(
+				IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*Result.SourceFilePath));
+		}
+
+		if (ExistingTexture == nullptr)
+		{
+			FAssetRegistryModule::AssetCreated(ImportedTexture);
+		}
+
+		TexturePackage->MarkPackageDirty();
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Imported texture but could not access the EditorAssetSubsystem to save it: %s"),
+					*Result.AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(ImportedTexture, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Imported texture but failed to save it: %s"),
+					*Result.AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Imported texture %s from %s."),
+			*Result.AssetObjectPath,
+			*Result.SourceFilePath);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetWidgetImageTextureObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const FString& TextureAssetPath,
+		const bool bMatchTextureSize,
+		const bool bSaveAsset) const
+	{
+		const FSetWidgetImageTextureResult SetResult =
+			SetWidgetImageTexture(AssetPath, WidgetName, TextureAssetPath, bMatchTextureSize, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetStringField(TEXT("textureAssetPath"), SetResult.TextureAssetPath);
+		return ResultObject;
+	}
+
+	FSetWidgetImageTextureResult SetWidgetImageTexture(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const FString& InTextureAssetPath,
+		const bool bMatchTextureSize,
+		const bool bSaveAsset) const
+	{
+		FSetWidgetImageTextureResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		if (WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Widget Blueprint is missing a widget tree: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UTexture2D* const TextureAsset = ResolveTextureAsset(InTextureAssetPath, Result.TextureAssetPath, ErrorMessage);
+		if (TextureAsset == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		UImage* const ImageWidget = Cast<UImage>(WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName)));
+		if (ImageWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find UImage widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		WidgetBlueprint->Modify();
+		ImageWidget->SetFlags(RF_Transactional);
+		ImageWidget->Modify();
+		ImageWidget->SetBrushFromTexture(TextureAsset, bMatchTextureSize);
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget image texture but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget image texture but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set widget image %s on %s to texture %s."),
+			*Result.WidgetName,
+			*AssetObjectPath,
+			*Result.TextureAssetPath);
+		return Result;
 	}
 
 	TSharedRef<FJsonObject> BuildSetBlueprintClassPropertyObject(

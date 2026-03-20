@@ -26,16 +26,20 @@ LIVE_CODING_WAIT_TIMEOUT_SECONDS = 300.0
 LIVE_CODING_NOWAIT_TIMEOUT_SECONDS = 15.0
 CREATE_BLUEPRINT_ASSET_TIMEOUT_SECONDS = 30.0
 CREATE_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
+IMPORT_TEXTURE_ASSET_TIMEOUT_SECONDS = 60.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS = 30.0
 SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS = 15.0
+SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS = 30.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
 CREATE_BLUEPRINT_ASSET_TOOL_NAME = "ue_create_blueprint_asset"
 CREATE_WIDGET_BLUEPRINT_TOOL_NAME = "ue_create_widget_blueprint"
+IMPORT_TEXTURE_ASSET_TOOL_NAME = "ue_import_texture_asset"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
 SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME = "ue_set_blueprint_class_property"
 SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME = "ue_set_global_default_game_mode"
+SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME = "ue_set_widget_image_texture"
 
 
 class JsonRpcError(Exception):
@@ -325,6 +329,74 @@ def build_create_widget_blueprint_tool_definition() -> dict[str, Any]:
     }
 
 
+def build_import_texture_asset_tool_definition() -> dict[str, Any]:
+    return {
+        "name": IMPORT_TEXTURE_ASSET_TOOL_NAME,
+        "title": "Import Unreal texture asset",
+        "description": (
+            "Import a texture file such as PNG into the running Unreal Editor as a project asset."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "sourceFilePath": {
+                    "type": "string",
+                    "description": "Absolute or relative source image file path on disk.",
+                },
+                "assetPath": {
+                    "type": "string",
+                    "description": (
+                        "Destination asset package path such as /Game/UI/Image/T_Duck or "
+                        "full object path such as /Game/UI/Image/T_Duck.T_Duck."
+                    ),
+                },
+                "replaceExisting": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Overwrite an existing asset at the destination path when possible.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the imported asset to disk before responding.",
+                },
+            },
+            "required": ["sourceFilePath", "assetPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "imported": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "sourceFilePath": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "imported",
+                "saved",
+                "success",
+                "message",
+                "sourceFilePath",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
 def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
     return {
         "name": SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME,
@@ -450,6 +522,75 @@ def build_set_blueprint_class_property_tool_definition() -> dict[str, Any]:
                 "propertyName",
                 "valueClassPath",
                 "valueClassName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_widget_image_texture_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME,
+        "title": "Set Widget Blueprint image texture",
+        "description": (
+            "Assign a texture asset to a named UImage widget inside a Widget Blueprint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the target UImage widget inside the Widget Blueprint.",
+                },
+                "textureAssetPath": {
+                    "type": "string",
+                    "description": "Texture asset path to assign to the image brush.",
+                },
+                "matchTextureSize": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Resize the image widget brush size to match the imported texture.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "textureAssetPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "textureAssetPath": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "textureAssetPath",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -853,6 +994,86 @@ def build_create_widget_blueprint_tool_error(
     }
 
 
+def build_import_texture_asset_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    source_file_path = arguments.get("sourceFilePath")
+    if not isinstance(source_file_path, str) or not source_file_path.strip():
+        raise JsonRpcError(-32602, "ue_import_texture_asset.sourceFilePath must be a non-empty string.")
+
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_import_texture_asset.assetPath must be a non-empty string.")
+
+    replace_existing = arguments.get("replaceExisting", True)
+    if not isinstance(replace_existing, bool):
+        raise JsonRpcError(-32602, "ue_import_texture_asset.replaceExisting must be a boolean.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_import_texture_asset.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "import_texture_asset",
+        {
+            "sourceFilePath": source_file_path,
+            "assetPath": asset_path,
+            "replaceExisting": replace_existing,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=IMPORT_TEXTURE_ASSET_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "imported": bool(bridge_result.get("imported", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "sourceFilePath": str(bridge_result.get("sourceFilePath", source_file_path)),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"imported={structured_content['imported']} | "
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_import_texture_asset_tool_error(
+    message: str, editor_reachable: bool, source_file_path: str, asset_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "imported": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "sourceFilePath": source_file_path,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -1012,6 +1233,92 @@ def build_set_blueprint_class_property_tool_error(
     }
 
 
+def build_set_widget_image_texture_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_image_texture.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_image_texture.widgetName must be a non-empty string.")
+
+    texture_asset_path = arguments.get("textureAssetPath")
+    if not isinstance(texture_asset_path, str) or not texture_asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_image_texture.textureAssetPath must be a non-empty string.")
+
+    match_texture_size = arguments.get("matchTextureSize", False)
+    if not isinstance(match_texture_size, bool):
+        raise JsonRpcError(-32602, "ue_set_widget_image_texture.matchTextureSize must be a boolean.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_widget_image_texture.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_widget_image_texture",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "textureAssetPath": texture_asset_path,
+            "matchTextureSize": match_texture_size,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "textureAssetPath": str(bridge_result.get("textureAssetPath", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"texture={structured_content['textureAssetPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_widget_image_texture_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str, texture_asset_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "textureAssetPath": texture_asset_path,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_set_global_default_game_mode_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     game_mode_class_path = arguments.get("gameModeClassPath")
     if not isinstance(game_mode_class_path, str) or not game_mode_class_path.strip():
@@ -1096,8 +1403,10 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_live_coding_compile to trigger a Live Coding build in the running Unreal Editor, "
                 "ue_create_blueprint_asset to generate a non-UMG Blueprint asset from a parent class, "
                 "ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class, "
+                "ue_import_texture_asset to import a disk image into the project, "
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
+                "ue_set_widget_image_texture to assign a texture to a UImage in a Widget Blueprint, "
                 "or ue_set_global_default_game_mode to update the project's default GameMode."
             ),
         },
@@ -1114,8 +1423,10 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_live_coding_tool_definition(),
                 build_create_blueprint_asset_tool_definition(),
                 build_create_widget_blueprint_tool_definition(),
+                build_import_texture_asset_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
                 build_set_blueprint_class_property_tool_definition(),
+                build_set_widget_image_texture_tool_definition(),
                 build_set_global_default_game_mode_tool_definition(),
             ]
         },
@@ -1186,6 +1497,24 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
             )
         return make_response(message_id, result)
 
+    if tool_name == IMPORT_TEXTURE_ASSET_TOOL_NAME:
+        source_file_path = tool_arguments.get("sourceFilePath", "")
+        asset_path = tool_arguments.get("assetPath", "")
+        if source_file_path is not None and not isinstance(source_file_path, str):
+            raise JsonRpcError(-32602, "ue_import_texture_asset.sourceFilePath must be a string.")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_import_texture_asset.assetPath must be a string.")
+        try:
+            result = build_import_texture_asset_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_import_texture_asset_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(source_file_path or ""),
+                str(asset_path or ""),
+            )
+        return make_response(message_id, result)
+
     if tool_name == SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME:
         asset_path = tool_arguments.get("assetPath", "")
         scaffold_type = tool_arguments.get("scaffoldType", "")
@@ -1223,6 +1552,28 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 str(asset_path or ""),
                 str(property_name or ""),
                 str(value_class_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        texture_asset_path = tool_arguments.get("textureAssetPath", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_widget_image_texture.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_widget_image_texture.widgetName must be a string.")
+        if texture_asset_path is not None and not isinstance(texture_asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_widget_image_texture.textureAssetPath must be a string.")
+        try:
+            result = build_set_widget_image_texture_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_widget_image_texture_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+                str(texture_asset_path or ""),
             )
         return make_response(message_id, result)
 

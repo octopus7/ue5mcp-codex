@@ -9,6 +9,7 @@ public class OctoMCP : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
+				"AssetRegistry",
 				"AssetTools",
 				"Core",
 				"CoreUObject",
