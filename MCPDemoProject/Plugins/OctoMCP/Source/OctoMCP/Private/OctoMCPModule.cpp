@@ -3628,45 +3628,58 @@ private:
 			}
 		}
 
-		UTextBlock* HeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"));
-		if (HeaderText == nullptr)
+		if (UTextBlock* const LegacyContentTitleText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText")))
 		{
-			if (UTextBlock* const LegacyHeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText")))
+			if (LegacyContentTitleText->GetParent() == PopupContent)
+			{
+				TSet<UWidget*> WidgetsToDelete;
+				WidgetsToDelete.Add(LegacyContentTitleText);
+				FWidgetBlueprintEditorUtils::DeleteWidgets(
+					WidgetBlueprint,
+					WidgetsToDelete,
+					FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
+			}
+		}
+
+		UTextBlock* TitleText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText"));
+		if (TitleText == nullptr)
+		{
+			if (UTextBlock* const LegacyHeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("HeaderText")))
 			{
 				if (LegacyHeaderText->GetParent() == HeaderRow)
 				{
-					if (!RenameWidget(WidgetBlueprint, LegacyHeaderText, TEXT("HeaderText")))
+					if (!RenameWidget(WidgetBlueprint, LegacyHeaderText, TEXT("TitleText")))
 					{
 						return false;
 					}
-					HeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"));
+					TitleText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText"));
 				}
 			}
 		}
 
-		bool bCreatedHeaderText = false;
-		if (HeaderText == nullptr)
+		bool bCreatedTitleText = false;
+		if (TitleText == nullptr)
 		{
-			HeaderText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"), bCreatedHeaderText);
+			TitleText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("TitleText"), bCreatedTitleText);
 		}
 
-		if (HeaderText == nullptr)
+		if (TitleText == nullptr)
 		{
 			return false;
 		}
 
-		RegisterBindableWidget(WidgetBlueprint, HeaderText);
+		RegisterBindableWidget(WidgetBlueprint, TitleText);
 
-		if (bCreatedHeaderText)
+		if (bCreatedTitleText)
 		{
-			HeaderText->SetText(FText::FromString(TEXT("Popup Header")));
-			HeaderText->SetAutoWrapText(true);
-			HeaderText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+			TitleText->SetText(FText::FromString(TEXT("Popup Title")));
+			TitleText->SetAutoWrapText(true);
+			TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
 		}
 
-		if (UHorizontalBoxSlot* const HeaderTextSlot = Cast<UHorizontalBoxSlot>(EnsurePanelChildAt(HeaderRow, HeaderText, 0)))
+		if (UHorizontalBoxSlot* const HeaderTextSlot = Cast<UHorizontalBoxSlot>(EnsurePanelChildAt(HeaderRow, TitleText, 0)))
 		{
-			if (bCreatedHeaderText)
+			if (bCreatedTitleText)
 			{
 				FSlateChildSize FillSize(ESlateSizeRule::Fill);
 				FillSize.Value = 1.0f;
@@ -3770,19 +3783,6 @@ private:
 		if (bCreatedPopupImage)
 		{
 			PopupImage->SetDesiredSizeOverride(FVector2D(504.0f, 196.0f));
-		}
-
-		if (UTextBlock* const LegacyTitleText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText")))
-		{
-			if (LegacyTitleText->GetParent() == PopupContent)
-			{
-				TSet<UWidget*> WidgetsToDelete;
-				WidgetsToDelete.Add(LegacyTitleText);
-				FWidgetBlueprintEditorUtils::DeleteWidgets(
-					WidgetBlueprint,
-					WidgetsToDelete,
-					FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
-			}
 		}
 
 		bool bCreatedBodyText = false;
