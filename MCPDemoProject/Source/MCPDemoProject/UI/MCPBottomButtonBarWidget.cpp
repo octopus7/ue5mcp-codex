@@ -15,6 +15,12 @@ void UMCPBottomButtonBarWidget::NativeOnInitialized()
 		TestPopupOpenButton->OnClicked.RemoveAll(this);
 		TestPopupOpenButton->OnClicked.AddDynamic(this, &UMCPBottomButtonBarWidget::HandleTestPopupOpenButtonClicked);
 	}
+
+	if (TestTilePopupOpenButton != nullptr)
+	{
+		TestTilePopupOpenButton->OnClicked.RemoveAll(this);
+		TestTilePopupOpenButton->OnClicked.AddDynamic(this, &UMCPBottomButtonBarWidget::HandleTestTilePopupOpenButtonClicked);
+	}
 }
 
 void UMCPBottomButtonBarWidget::HandleTestPopupOpenButtonClicked()
@@ -31,6 +37,33 @@ void UMCPBottomButtonBarWidget::HandleTestPopupOpenButtonClicked()
 		return;
 	}
 
+	ActivePopupWidget = OpenPopupWidget(PopupWidgetClass);
+}
+
+void UMCPBottomButtonBarWidget::HandleTestTilePopupOpenButtonClicked()
+{
+	if (ActiveTilePopupWidget != nullptr && ActiveTilePopupWidget->IsInViewport())
+	{
+		return;
+	}
+
+	ActiveTilePopupWidget = nullptr;
+
+	if (ItemTilePopupWidgetClass == nullptr)
+	{
+		return;
+	}
+
+	ActiveTilePopupWidget = OpenPopupWidget(ItemTilePopupWidgetClass);
+}
+
+UMCPPopupWidget* UMCPBottomButtonBarWidget::OpenPopupWidget(const TSubclassOf<UMCPPopupWidget> InPopupWidgetClass) const
+{
+	if (InPopupWidgetClass == nullptr)
+	{
+		return nullptr;
+	}
+
 	APlayerController* OwningPlayer = GetOwningPlayer();
 	if (OwningPlayer == nullptr && GetWorld() != nullptr)
 	{
@@ -39,12 +72,14 @@ void UMCPBottomButtonBarWidget::HandleTestPopupOpenButtonClicked()
 
 	if (OwningPlayer == nullptr)
 	{
-		return;
+		return nullptr;
 	}
 
-	ActivePopupWidget = CreateWidget<UMCPPopupWidget>(OwningPlayer, PopupWidgetClass);
-	if (ActivePopupWidget != nullptr)
+	UMCPPopupWidget* const PopupWidget = CreateWidget<UMCPPopupWidget>(OwningPlayer, InPopupWidgetClass);
+	if (PopupWidget != nullptr)
 	{
-		ActivePopupWidget->AddToViewport(100);
+		PopupWidget->AddToViewport(100);
 	}
+
+	return PopupWidget;
 }

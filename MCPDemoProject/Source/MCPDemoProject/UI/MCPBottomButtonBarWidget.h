@@ -21,9 +21,17 @@ protected:
 	UFUNCTION()
 	void HandleTestPopupOpenButtonClicked();
 
+	UFUNCTION()
+	void HandleTestTilePopupOpenButtonClicked();
+
+	UMCPPopupWidget* OpenPopupWidget(TSubclassOf<UMCPPopupWidget> InPopupWidgetClass) const;
+
 protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Button Bar")
 	TSubclassOf<UMCPPopupWidget> PopupWidgetClass;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Button Bar")
+	TSubclassOf<UMCPPopupWidget> ItemTilePopupWidgetClass;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Button Bar", meta = (BindWidgetOptional))
 	TObjectPtr<UHorizontalBox> ButtonContainer = nullptr;
@@ -31,6 +39,12 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Button Bar", meta = (BindWidgetOptional))
 	TObjectPtr<UButton> TestPopupOpenButton = nullptr;
 
+	UPROPERTY(BlueprintReadOnly, Category = "Button Bar", meta = (BindWidgetOptional))
+	TObjectPtr<UButton> TestTilePopupOpenButton = nullptr;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UMCPPopupWidget> ActivePopupWidget = nullptr;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMCPPopupWidget> ActiveTilePopupWidget = nullptr;
 };
