@@ -13,7 +13,15 @@ public class MCPDemoProject : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
-				"Engine"
+				"Engine",
+				"UMG"
+			});
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[]
+			{
+				"Slate",
+				"SlateCore"
 			});
 	}
 }
