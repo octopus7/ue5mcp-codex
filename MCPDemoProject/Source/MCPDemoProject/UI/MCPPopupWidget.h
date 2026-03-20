@@ -16,6 +16,12 @@ class MCPDEMOPROJECT_API UMCPPopupWidget : public UUserWidget
 	GENERATED_BODY()
 
 protected:
+	virtual void NativeOnInitialized() override;
+
+	UFUNCTION()
+	void HandleCloseButtonClicked();
+
+protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
 	TObjectPtr<UImage> PopupImage = nullptr;
 
