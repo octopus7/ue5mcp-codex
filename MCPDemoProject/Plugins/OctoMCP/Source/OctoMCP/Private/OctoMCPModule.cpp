@@ -6,6 +6,7 @@
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
 #include "EditorFramework/AssetImportData.h"
+#include "Components/BackgroundBlur.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
 #include "Components/ButtonSlot.h"
@@ -78,6 +79,8 @@ namespace OctoMCP
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
 	const TCHAR* const CommandSetBlueprintClassProperty = TEXT("set_blueprint_class_property");
 	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
+	const TCHAR* const CommandSetWidgetBackgroundBlur = TEXT("set_widget_background_blur");
+	const TCHAR* const CommandSetWidgetCornerRadius = TEXT("set_widget_corner_radius");
 	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
 }
 
@@ -188,6 +191,38 @@ namespace
 		FString AssetName;
 		FString WidgetName;
 		FString TextureAssetPath;
+	};
+
+	struct FSetWidgetBackgroundBlurResult
+	{
+		bool bConverted = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		bool bApplyAlphaToBlur = false;
+		bool bOverrideAutoRadiusCalculation = false;
+		float BlurStrength = 0.0f;
+		int32 BlurRadius = 0;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString WidgetClassName;
+	};
+
+	struct FSetWidgetCornerRadiusResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		float Radius = 0.0f;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString WidgetClassName;
 	};
 
 	struct FReorderWidgetChildResult
@@ -615,6 +650,189 @@ private:
 				ResponseObject->SetObjectField(
 					TEXT("result"),
 					BuildImportTextureAssetObject(SourceFilePath, AssetPath, bReplaceExisting, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetWidgetBackgroundBlur)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float BlurStrength = 30.0f;
+			if (!TryGetOptionalFloatArgument(ArgumentsObject, TEXT("blurStrength"), BlurStrength, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 BlurRadius = 0;
+			bool bHasBlurRadius = false;
+			if (!TryGetOptionalIntArgument(ArgumentsObject, TEXT("blurRadius"), BlurRadius, bHasBlurRadius, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bApplyAlphaToBlur = false;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("applyAlphaToBlur"), bApplyAlphaToBlur, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, BlurStrength, BlurRadius, bHasBlurRadius, bApplyAlphaToBlur, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetWidgetBackgroundBlurObject(
+						AssetPath,
+						WidgetName,
+						BlurStrength,
+						bHasBlurRadius ? TOptional<int32>(BlurRadius) : TOptional<int32>(),
+						bApplyAlphaToBlur,
+						bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetWidgetCornerRadius)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float Radius = 0.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("radius"), Radius, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, Radius, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetWidgetCornerRadiusObject(AssetPath, WidgetName, Radius, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -1894,6 +2112,325 @@ private:
 		return Result;
 	}
 
+	TSharedRef<FJsonObject> BuildSetWidgetBackgroundBlurObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const float BlurStrength,
+		const TOptional<int32> BlurRadius,
+		const bool bApplyAlphaToBlur,
+		const bool bSaveAsset) const
+	{
+		const FSetWidgetBackgroundBlurResult SetResult =
+			SetWidgetBackgroundBlur(AssetPath, WidgetName, BlurStrength, BlurRadius, bApplyAlphaToBlur, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("converted"), SetResult.bConverted);
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetStringField(TEXT("widgetClassName"), SetResult.WidgetClassName);
+		ResultObject->SetBoolField(TEXT("applyAlphaToBlur"), SetResult.bApplyAlphaToBlur);
+		ResultObject->SetBoolField(TEXT("overrideAutoRadiusCalculation"), SetResult.bOverrideAutoRadiusCalculation);
+		ResultObject->SetNumberField(TEXT("blurStrength"), SetResult.BlurStrength);
+		ResultObject->SetNumberField(TEXT("blurRadius"), SetResult.BlurRadius);
+		return ResultObject;
+	}
+
+	FSetWidgetBackgroundBlurResult SetWidgetBackgroundBlur(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const float InBlurStrength,
+		const TOptional<int32> InBlurRadius,
+		const bool bApplyAlphaToBlur,
+		const bool bSaveAsset) const
+	{
+		FSetWidgetBackgroundBlurResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const ExistingWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (ExistingWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		UBackgroundBlur* BackgroundBlurWidget = Cast<UBackgroundBlur>(ExistingWidget);
+		if (BackgroundBlurWidget == nullptr)
+		{
+			if (!ExistingWidget->IsA<UContentWidget>())
+			{
+				Result.Message = FString::Printf(
+					TEXT("Widget %s must be a content widget to convert it into a background blur."),
+					*Result.WidgetName);
+				return Result;
+			}
+
+			if (ExistingWidget->bIsVariable && FBlueprintEditorUtils::IsVariableUsed(WidgetBlueprint, ExistingWidget->GetFName()))
+			{
+				Result.Message = FString::Printf(
+					TEXT("Widget %s is referenced in the graph and cannot be converted automatically."),
+					*Result.WidgetName);
+				return Result;
+			}
+
+			TSet<UWidget*> WidgetsToReplace;
+			WidgetsToReplace.Add(ExistingWidget);
+			FWidgetBlueprintEditorUtils::ReplaceWidgets(
+				WidgetBlueprint,
+				WidgetsToReplace,
+				UBackgroundBlur::StaticClass(),
+				FWidgetBlueprintEditorUtils::EReplaceWidgetNamingMethod::MaintainNameAndReferences);
+
+			BackgroundBlurWidget = FindWidgetByName<UBackgroundBlur>(WidgetBlueprint, *Result.WidgetName);
+			if (BackgroundBlurWidget == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Failed to convert widget %s into a background blur in %s."),
+					*Result.WidgetName,
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bConverted = true;
+		}
+
+		Result.BlurStrength = FMath::Clamp(InBlurStrength, 0.0f, 100.0f);
+		Result.bApplyAlphaToBlur = bApplyAlphaToBlur;
+		Result.bOverrideAutoRadiusCalculation = InBlurRadius.IsSet();
+		Result.BlurRadius = FMath::Clamp(InBlurRadius.Get(0), 0, 255);
+		Result.WidgetClassName = BackgroundBlurWidget->GetClass()->GetName();
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		BackgroundBlurWidget->SetFlags(RF_Transactional);
+		BackgroundBlurWidget->Modify();
+		BackgroundBlurWidget->SetApplyAlphaToBlur(Result.bApplyAlphaToBlur);
+		BackgroundBlurWidget->SetBlurStrength(Result.BlurStrength);
+		BackgroundBlurWidget->SetOverrideAutoRadiusCalculation(Result.bOverrideAutoRadiusCalculation);
+		if (Result.bOverrideAutoRadiusCalculation)
+		{
+			BackgroundBlurWidget->SetBlurRadius(Result.BlurRadius);
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		if (Result.bConverted)
+		{
+			FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		}
+		else
+		{
+			FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		}
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget background blur but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget background blur but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Configured widget %s on %s as a background blur."),
+			*Result.WidgetName,
+			*AssetObjectPath);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetWidgetCornerRadiusObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const float Radius,
+		const bool bSaveAsset) const
+	{
+		const FSetWidgetCornerRadiusResult SetResult =
+			SetWidgetCornerRadius(AssetPath, WidgetName, Radius, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetStringField(TEXT("widgetClassName"), SetResult.WidgetClassName);
+		ResultObject->SetNumberField(TEXT("radius"), SetResult.Radius);
+		return ResultObject;
+	}
+
+	FSetWidgetCornerRadiusResult SetWidgetCornerRadius(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const float InRadius,
+		const bool bSaveAsset) const
+	{
+		FSetWidgetCornerRadiusResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+		Result.Radius = FMath::Max(0.0f, InRadius);
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const TargetWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (TargetWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		const FVector4 CornerRadius(Result.Radius, Result.Radius, Result.Radius, Result.Radius);
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		TargetWidget->SetFlags(RF_Transactional);
+		TargetWidget->Modify();
+
+		if (UBackgroundBlur* const BackgroundBlurWidget = Cast<UBackgroundBlur>(TargetWidget))
+		{
+			BackgroundBlurWidget->SetCornerRadius(CornerRadius);
+			Result.WidgetClassName = BackgroundBlurWidget->GetClass()->GetName();
+		}
+		else if (UBorder* const BorderWidget = Cast<UBorder>(TargetWidget))
+		{
+			FSlateBrush RoundedBrush = BorderWidget->Background;
+			RoundedBrush.DrawAs = ESlateBrushDrawType::RoundedBox;
+			RoundedBrush.Tiling = ESlateBrushTileType::NoTile;
+			RoundedBrush.Margin = FMargin(0.0f);
+			RoundedBrush.OutlineSettings = FSlateBrushOutlineSettings(CornerRadius);
+			BorderWidget->SetBrush(RoundedBrush);
+			Result.WidgetClassName = BorderWidget->GetClass()->GetName();
+		}
+		else
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget %s does not support corner radius. Supported widget classes are BackgroundBlur and Border."),
+				*Result.WidgetName);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget corner radius but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget corner radius but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set corner radius on widget %s in %s to %.2f."),
+			*Result.WidgetName,
+			*AssetObjectPath,
+			Result.Radius);
+		return Result;
+	}
+
 	TSharedRef<FJsonObject> BuildReorderWidgetChildObject(
 		const FString& AssetPath,
 		const FString& WidgetName,
@@ -2734,7 +3271,16 @@ private:
 		}
 
 		bool bCreatedPopupCard = false;
-		UBorder* const PopupCard = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("PopupCard"), bCreatedPopupCard);
+		UContentWidget* PopupCard = FindWidgetByName<UBackgroundBlur>(WidgetBlueprint, TEXT("PopupCard"));
+		if (PopupCard == nullptr)
+		{
+			PopupCard = FindWidgetByName<UBorder>(WidgetBlueprint, TEXT("PopupCard"));
+		}
+		if (PopupCard == nullptr)
+		{
+			bCreatedPopupCard = true;
+			PopupCard = WidgetBlueprint->WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("PopupCard"));
+		}
 		if (PopupCard == nullptr)
 		{
 			return false;
@@ -2742,10 +3288,19 @@ private:
 
 		if (bCreatedPopupCard)
 		{
-			PopupCard->SetPadding(FMargin(28.0f));
-			PopupCard->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 1.0f));
-			PopupCard->SetHorizontalAlignment(HAlign_Fill);
-			PopupCard->SetVerticalAlignment(VAlign_Fill);
+			if (UBorder* const PopupCardBorder = Cast<UBorder>(PopupCard))
+			{
+				PopupCardBorder->SetPadding(FMargin(28.0f));
+				PopupCardBorder->SetHorizontalAlignment(HAlign_Fill);
+				PopupCardBorder->SetVerticalAlignment(VAlign_Fill);
+				PopupCardBorder->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 1.0f));
+			}
+			else if (UBackgroundBlur* const PopupCardBlur = Cast<UBackgroundBlur>(PopupCard))
+			{
+				PopupCardBlur->SetPadding(FMargin(28.0f));
+				PopupCardBlur->SetHorizontalAlignment(HAlign_Fill);
+				PopupCardBlur->SetVerticalAlignment(VAlign_Fill);
+			}
 		}
 
 		if (UCanvasPanelSlot* const PopupCardSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, PopupCard, 1)))
@@ -2927,27 +3482,16 @@ private:
 			PopupImage->SetDesiredSizeOverride(FVector2D(504.0f, 196.0f));
 		}
 
-		bool bCreatedTitleText = false;
-		UTextBlock* const TitleText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("TitleText"), bCreatedTitleText);
-		if (TitleText == nullptr)
+		if (UTextBlock* const LegacyTitleText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText")))
 		{
-			return false;
-		}
-
-		RegisterBindableWidget(WidgetBlueprint, TitleText);
-		if (bCreatedTitleText)
-		{
-			TitleText->SetText(FText::FromString(TEXT("Popup Title")));
-			TitleText->SetAutoWrapText(true);
-			TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-		}
-
-		if (UVerticalBoxSlot* const TitleTextSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, TitleText, 2)))
-		{
-			if (bCreatedTitleText)
+			if (LegacyTitleText->GetParent() == PopupContent)
 			{
-				TitleTextSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 8.0f));
-				TitleTextSlot->SetHorizontalAlignment(HAlign_Fill);
+				TSet<UWidget*> WidgetsToDelete;
+				WidgetsToDelete.Add(LegacyTitleText);
+				FWidgetBlueprintEditorUtils::DeleteWidgets(
+					WidgetBlueprint,
+					WidgetsToDelete,
+					FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
 			}
 		}
 
@@ -2966,7 +3510,7 @@ private:
 			BodyText->SetColorAndOpacity(FSlateColor(FLinearColor(0.92f, 0.94f, 0.96f, 1.0f)));
 		}
 
-		if (UVerticalBoxSlot* const BodySlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, BodyText, 3)))
+		if (UVerticalBoxSlot* const BodySlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, BodyText, 2)))
 		{
 			if (bCreatedBodyText)
 			{
@@ -2990,7 +3534,7 @@ private:
 			FooterText->SetColorAndOpacity(FSlateColor(FLinearColor(0.72f, 0.76f, 0.82f, 1.0f)));
 		}
 
-		if (UVerticalBoxSlot* const FooterSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, FooterText, 4)))
+		if (UVerticalBoxSlot* const FooterSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, FooterText, 3)))
 		{
 			if (bCreatedFooterText)
 			{
@@ -3188,6 +3732,49 @@ private:
 		return true;
 	}
 
+	bool TryGetOptionalIntArgument(
+		const TSharedPtr<FJsonObject>& ArgumentsObject,
+		const FString& FieldName,
+		int32& OutValue,
+		bool& bOutHasValue,
+		FString& OutError) const
+	{
+		bOutHasValue = false;
+		if (!ArgumentsObject.IsValid() || !ArgumentsObject->HasField(FieldName))
+		{
+			return true;
+		}
+
+		if (!ArgumentsObject->TryGetNumberField(FieldName, OutValue))
+		{
+			OutError = FString::Printf(TEXT("%s must be an integer when provided."), *FieldName);
+			return false;
+		}
+
+		bOutHasValue = true;
+		return true;
+	}
+
+	bool TryGetOptionalFloatArgument(
+		const TSharedPtr<FJsonObject>& ArgumentsObject,
+		const FString& FieldName,
+		float& OutValue,
+		FString& OutError) const
+	{
+		if (!ArgumentsObject.IsValid() || !ArgumentsObject->HasField(FieldName))
+		{
+			return true;
+		}
+
+		if (!ArgumentsObject->TryGetNumberField(FieldName, OutValue))
+		{
+			OutError = FString::Printf(TEXT("%s must be a number when provided."), *FieldName);
+			return false;
+		}
+
+		return true;
+	}
+
 	bool TryGetRequiredIntArgument(
 		const TSharedPtr<FJsonObject>& ArgumentsObject,
 		const FString& FieldName,
@@ -3203,6 +3790,27 @@ private:
 		if (!ArgumentsObject->TryGetNumberField(FieldName, OutValue))
 		{
 			OutError = FString::Printf(TEXT("%s must be an integer."), *FieldName);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool TryGetRequiredFloatArgument(
+		const TSharedPtr<FJsonObject>& ArgumentsObject,
+		const FString& FieldName,
+		float& OutValue,
+		FString& OutError) const
+	{
+		if (!ArgumentsObject.IsValid() || !ArgumentsObject->HasField(FieldName))
+		{
+			OutError = FString::Printf(TEXT("%s is required."), *FieldName);
+			return false;
+		}
+
+		if (!ArgumentsObject->TryGetNumberField(FieldName, OutValue))
+		{
+			OutError = FString::Printf(TEXT("%s must be a number."), *FieldName);
 			return false;
 		}
 

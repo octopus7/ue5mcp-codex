@@ -32,6 +32,8 @@ REMOVE_WIDGET_TIMEOUT_SECONDS = 30.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS = 30.0
 SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS = 15.0
+SET_WIDGET_BACKGROUND_BLUR_TIMEOUT_SECONDS = 30.0
+SET_WIDGET_CORNER_RADIUS_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS = 30.0
 VERSION_TOOL_NAME = "ue_get_version_info"
 LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
@@ -43,6 +45,8 @@ REMOVE_WIDGET_TOOL_NAME = "ue_remove_widget"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
 SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME = "ue_set_blueprint_class_property"
 SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME = "ue_set_global_default_game_mode"
+SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME = "ue_set_widget_background_blur"
+SET_WIDGET_CORNER_RADIUS_TOOL_NAME = "ue_set_widget_corner_radius"
 SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME = "ue_set_widget_image_texture"
 
 
@@ -526,6 +530,156 @@ def build_remove_widget_tool_definition() -> dict[str, Any]:
                 "assetName",
                 "widgetName",
                 "parentWidgetName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_widget_background_blur_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME,
+        "title": "Set Widget Blueprint background blur",
+        "description": (
+            "Ensure a named widget in a Widget Blueprint is a BackgroundBlur widget and configure its blur appearance."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the widget to convert/configure as a BackgroundBlur.",
+                },
+                "blurStrength": {
+                    "type": "number",
+                    "default": 30.0,
+                    "description": "Blur intensity from 0 to 100.",
+                },
+                "blurRadius": {
+                    "type": "integer",
+                    "description": "Optional explicit blur radius. If omitted, Unreal auto-calculates it from the strength.",
+                },
+                "applyAlphaToBlur": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Modulate blur strength by the widget alpha.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "converted": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "widgetClassName": {"type": "string"},
+                "blurStrength": {"type": "number"},
+                "blurRadius": {"type": "integer"},
+                "applyAlphaToBlur": {"type": "boolean"},
+                "overrideAutoRadiusCalculation": {"type": "boolean"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "converted",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "widgetClassName",
+                "blurStrength",
+                "blurRadius",
+                "applyAlphaToBlur",
+                "overrideAutoRadiusCalculation",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_widget_corner_radius_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_WIDGET_CORNER_RADIUS_TOOL_NAME,
+        "title": "Set Widget Blueprint corner radius",
+        "description": (
+            "Set a uniform corner radius on a named BackgroundBlur or Border widget inside a Widget Blueprint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the target widget.",
+                },
+                "radius": {
+                    "type": "number",
+                    "description": "Uniform corner radius in Slate units.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "radius"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "widgetClassName": {"type": "string"},
+                "radius": {"type": "number"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "widgetClassName",
+                "radius",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -1377,6 +1531,195 @@ def build_remove_widget_tool_error(
     }
 
 
+def build_set_widget_background_blur_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.widgetName must be a non-empty string.")
+
+    blur_strength = arguments.get("blurStrength", 30.0)
+    if not isinstance(blur_strength, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.blurStrength must be a number.")
+
+    blur_radius = arguments.get("blurRadius")
+    if blur_radius is not None and not isinstance(blur_radius, int):
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.blurRadius must be an integer.")
+
+    apply_alpha_to_blur = arguments.get("applyAlphaToBlur", False)
+    if not isinstance(apply_alpha_to_blur, bool):
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.applyAlphaToBlur must be a boolean.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_widget_background_blur.saveAsset must be a boolean.")
+
+    bridge_arguments: dict[str, Any] = {
+        "assetPath": asset_path,
+        "widgetName": widget_name,
+        "blurStrength": float(blur_strength),
+        "applyAlphaToBlur": apply_alpha_to_blur,
+        "saveAsset": save_asset,
+    }
+    if blur_radius is not None:
+        bridge_arguments["blurRadius"] = blur_radius
+
+    bridge_result = call_ue_bridge(
+        "set_widget_background_blur",
+        bridge_arguments,
+        timeout_seconds=SET_WIDGET_BACKGROUND_BLUR_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "converted": bool(bridge_result.get("converted", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "widgetClassName": str(bridge_result.get("widgetClassName", "")),
+        "blurStrength": float(bridge_result.get("blurStrength", float(blur_strength))),
+        "blurRadius": int(bridge_result.get("blurRadius", int(blur_radius) if blur_radius is not None else 0)),
+        "applyAlphaToBlur": bool(bridge_result.get("applyAlphaToBlur", apply_alpha_to_blur)),
+        "overrideAutoRadiusCalculation": bool(bridge_result.get("overrideAutoRadiusCalculation", blur_radius is not None)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"converted={structured_content['converted']} | "
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"class={structured_content['widgetClassName']} | "
+        f"blur={structured_content['blurStrength']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_widget_background_blur_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "converted": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "widgetClassName": "",
+        "blurStrength": 0.0,
+        "blurRadius": 0,
+        "applyAlphaToBlur": False,
+        "overrideAutoRadiusCalculation": False,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_set_widget_corner_radius_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_corner_radius.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_widget_corner_radius.widgetName must be a non-empty string.")
+
+    radius = arguments.get("radius")
+    if not isinstance(radius, (int, float)):
+        raise JsonRpcError(-32602, "ue_set_widget_corner_radius.radius must be a number.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_widget_corner_radius.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_widget_corner_radius",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "radius": float(radius),
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_WIDGET_CORNER_RADIUS_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "widgetClassName": str(bridge_result.get("widgetClassName", "")),
+        "radius": float(bridge_result.get("radius", float(radius))),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"radius={structured_content['radius']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_widget_corner_radius_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "widgetClassName": "",
+        "radius": 0.0,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -1709,6 +2052,8 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_import_texture_asset to import a disk image into the project, "
                 "ue_reorder_widget_child to reorder a widget inside its current parent in a Widget Blueprint, "
                 "ue_remove_widget to remove a widget from a Widget Blueprint, "
+                "ue_set_widget_background_blur to convert/configure a widget as a BackgroundBlur panel, "
+                "ue_set_widget_corner_radius to set rounded corners on supported panel widgets, "
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
                 "ue_set_widget_image_texture to assign a texture to a UImage in a Widget Blueprint, "
@@ -1731,6 +2076,8 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_import_texture_asset_tool_definition(),
                 build_reorder_widget_child_tool_definition(),
                 build_remove_widget_tool_definition(),
+                build_set_widget_background_blur_tool_definition(),
+                build_set_widget_corner_radius_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
                 build_set_blueprint_class_property_tool_definition(),
                 build_set_widget_image_texture_tool_definition(),
@@ -1855,6 +2202,51 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
             result = build_remove_widget_tool_success(tool_arguments)
         except UeBridgeError as exc:
             result = build_remove_widget_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        blur_strength = tool_arguments.get("blurStrength", 30.0)
+        blur_radius = tool_arguments.get("blurRadius")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_widget_background_blur.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_widget_background_blur.widgetName must be a string.")
+        if blur_strength is not None and not isinstance(blur_strength, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_widget_background_blur.blurStrength must be a number.")
+        if blur_radius is not None and not isinstance(blur_radius, int):
+            raise JsonRpcError(-32602, "ue_set_widget_background_blur.blurRadius must be an integer.")
+        try:
+            result = build_set_widget_background_blur_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_widget_background_blur_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_WIDGET_CORNER_RADIUS_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        radius = tool_arguments.get("radius")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_widget_corner_radius.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_widget_corner_radius.widgetName must be a string.")
+        if radius is not None and not isinstance(radius, (int, float)):
+            raise JsonRpcError(-32602, "ue_set_widget_corner_radius.radius must be a number.")
+        try:
+            result = build_set_widget_corner_radius_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_widget_corner_radius_tool_error(
                 str(exc),
                 exc.editor_reachable,
                 str(asset_path or ""),
