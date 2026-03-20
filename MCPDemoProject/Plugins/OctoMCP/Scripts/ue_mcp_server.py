@@ -27,6 +27,8 @@ LIVE_CODING_NOWAIT_TIMEOUT_SECONDS = 15.0
 CREATE_BLUEPRINT_ASSET_TIMEOUT_SECONDS = 30.0
 CREATE_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 IMPORT_TEXTURE_ASSET_TIMEOUT_SECONDS = 60.0
+REORDER_WIDGET_CHILD_TIMEOUT_SECONDS = 30.0
+REMOVE_WIDGET_TIMEOUT_SECONDS = 30.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS = 30.0
 SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS = 15.0
@@ -36,6 +38,8 @@ LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
 CREATE_BLUEPRINT_ASSET_TOOL_NAME = "ue_create_blueprint_asset"
 CREATE_WIDGET_BLUEPRINT_TOOL_NAME = "ue_create_widget_blueprint"
 IMPORT_TEXTURE_ASSET_TOOL_NAME = "ue_import_texture_asset"
+REORDER_WIDGET_CHILD_TOOL_NAME = "ue_reorder_widget_child"
+REMOVE_WIDGET_TOOL_NAME = "ue_remove_widget"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
 SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME = "ue_set_blueprint_class_property"
 SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME = "ue_set_global_default_game_mode"
@@ -390,6 +394,138 @@ def build_import_texture_asset_tool_definition() -> dict[str, Any]:
                 "assetObjectPath",
                 "packagePath",
                 "assetName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_reorder_widget_child_tool_definition() -> dict[str, Any]:
+    return {
+        "name": REORDER_WIDGET_CHILD_TOOL_NAME,
+        "title": "Reorder Widget Blueprint child",
+        "description": (
+            "Reorder a named widget within its current panel parent inside a Widget Blueprint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the widget to reorder inside the Widget Blueprint.",
+                },
+                "desiredIndex": {
+                    "type": "integer",
+                    "description": "Zero-based target index within the widget's current panel parent.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "desiredIndex"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "reordered": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "parentWidgetName": {"type": "string"},
+                "requestedIndex": {"type": "integer"},
+                "finalIndex": {"type": "integer"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "reordered",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "parentWidgetName",
+                "requestedIndex",
+                "finalIndex",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_remove_widget_tool_definition() -> dict[str, Any]:
+    return {
+        "name": REMOVE_WIDGET_TOOL_NAME,
+        "title": "Remove Widget Blueprint widget",
+        "description": (
+            "Remove a named widget from a Widget Blueprint widget tree."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "widgetName": {
+                    "type": "string",
+                    "description": "Name of the widget to remove from the Widget Blueprint.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "removed": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "parentWidgetName": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "removed",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "parentWidgetName",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -1074,6 +1210,173 @@ def build_import_texture_asset_tool_error(
     }
 
 
+def build_reorder_widget_child_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_reorder_widget_child.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_reorder_widget_child.widgetName must be a non-empty string.")
+
+    desired_index = arguments.get("desiredIndex")
+    if not isinstance(desired_index, int):
+        raise JsonRpcError(-32602, "ue_reorder_widget_child.desiredIndex must be an integer.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_reorder_widget_child.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "reorder_widget_child",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "desiredIndex": desired_index,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=REORDER_WIDGET_CHILD_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "reordered": bool(bridge_result.get("reordered", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "parentWidgetName": str(bridge_result.get("parentWidgetName", "")),
+        "requestedIndex": int(bridge_result.get("requestedIndex", desired_index)),
+        "finalIndex": int(bridge_result.get("finalIndex", -1)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"reordered={structured_content['reordered']} | "
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"parent={structured_content['parentWidgetName']} | "
+        f"index={structured_content['finalIndex']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_reorder_widget_child_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str, desired_index: int
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "reordered": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "parentWidgetName": "",
+        "requestedIndex": desired_index,
+        "finalIndex": -1,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_remove_widget_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_remove_widget.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_remove_widget.widgetName must be a non-empty string.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_remove_widget.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "remove_widget",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=REMOVE_WIDGET_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "removed": bool(bridge_result.get("removed", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "parentWidgetName": str(bridge_result.get("parentWidgetName", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"removed={structured_content['removed']} | "
+        f"saved={structured_content['saved']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"widget={structured_content['widgetName']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_remove_widget_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "removed": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "parentWidgetName": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
     asset_path = arguments.get("assetPath")
     if not isinstance(asset_path, str) or not asset_path.strip():
@@ -1404,6 +1707,8 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_create_blueprint_asset to generate a non-UMG Blueprint asset from a parent class, "
                 "ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class, "
                 "ue_import_texture_asset to import a disk image into the project, "
+                "ue_reorder_widget_child to reorder a widget inside its current parent in a Widget Blueprint, "
+                "ue_remove_widget to remove a widget from a Widget Blueprint, "
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
                 "ue_set_widget_image_texture to assign a texture to a UImage in a Widget Blueprint, "
@@ -1424,6 +1729,8 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_create_blueprint_asset_tool_definition(),
                 build_create_widget_blueprint_tool_definition(),
                 build_import_texture_asset_tool_definition(),
+                build_reorder_widget_child_tool_definition(),
+                build_remove_widget_tool_definition(),
                 build_scaffold_widget_blueprint_tool_definition(),
                 build_set_blueprint_class_property_tool_definition(),
                 build_set_widget_image_texture_tool_definition(),
@@ -1512,6 +1819,46 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 exc.editor_reachable,
                 str(source_file_path or ""),
                 str(asset_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == REORDER_WIDGET_CHILD_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        desired_index = tool_arguments.get("desiredIndex", -1)
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_reorder_widget_child.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_reorder_widget_child.widgetName must be a string.")
+        if desired_index is not None and not isinstance(desired_index, int):
+            raise JsonRpcError(-32602, "ue_reorder_widget_child.desiredIndex must be an integer.")
+        try:
+            result = build_reorder_widget_child_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_reorder_widget_child_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+                int(desired_index if isinstance(desired_index, int) else -1),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == REMOVE_WIDGET_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_remove_widget.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_remove_widget.widgetName must be a string.")
+        try:
+            result = build_remove_widget_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_remove_widget_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
             )
         return make_response(message_id, result)
 

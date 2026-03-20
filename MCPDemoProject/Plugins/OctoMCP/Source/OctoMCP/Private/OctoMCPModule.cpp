@@ -34,6 +34,7 @@
 #include "Subsystems/EditorAssetSubsystem.h"
 #include "UObject/UnrealType.h"
 #include "WidgetBlueprint.h"
+#include "WidgetBlueprintEditorUtils.h"
 #include "WidgetBlueprintFactory.h"
 
 #include "Containers/StringConv.h"
@@ -72,6 +73,8 @@ namespace OctoMCP
 	const TCHAR* const CommandCreateBlueprintAsset = TEXT("create_blueprint_asset");
 	const TCHAR* const CommandCreateWidgetBlueprint = TEXT("create_widget_blueprint");
 	const TCHAR* const CommandImportTextureAsset = TEXT("import_texture_asset");
+	const TCHAR* const CommandReorderWidgetChild = TEXT("reorder_widget_child");
+	const TCHAR* const CommandRemoveWidget = TEXT("remove_widget");
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
 	const TCHAR* const CommandSetBlueprintClassProperty = TEXT("set_blueprint_class_property");
 	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
@@ -185,6 +188,36 @@ namespace
 		FString AssetName;
 		FString WidgetName;
 		FString TextureAssetPath;
+	};
+
+	struct FReorderWidgetChildResult
+	{
+		bool bReordered = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		int32 RequestedIndex = INDEX_NONE;
+		int32 FinalIndex = INDEX_NONE;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString ParentWidgetName;
+	};
+
+	struct FRemoveWidgetResult
+	{
+		bool bRemoved = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString ParentWidgetName;
 	};
 
 	struct FSetGlobalDefaultGameModeResult
@@ -645,6 +678,149 @@ private:
 					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
 				}
 				ResponseObject->SetObjectField(TEXT("result"), BuildScaffoldWidgetBlueprintObject(AssetPath, ScaffoldType, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandReorderWidgetChild)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 DesiredIndex = INDEX_NONE;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("desiredIndex"), DesiredIndex, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, DesiredIndex, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildReorderWidgetChildObject(AssetPath, WidgetName, DesiredIndex, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandRemoveWidget)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildRemoveWidgetObject(AssetPath, WidgetName, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -1718,6 +1894,293 @@ private:
 		return Result;
 	}
 
+	TSharedRef<FJsonObject> BuildReorderWidgetChildObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const int32 DesiredIndex,
+		const bool bSaveAsset) const
+	{
+		const FReorderWidgetChildResult ReorderResult =
+			ReorderWidgetChild(AssetPath, WidgetName, DesiredIndex, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("reordered"), ReorderResult.bReordered);
+		ResultObject->SetBoolField(TEXT("saved"), ReorderResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), ReorderResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), ReorderResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), ReorderResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), ReorderResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), ReorderResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), ReorderResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), ReorderResult.WidgetName);
+		ResultObject->SetStringField(TEXT("parentWidgetName"), ReorderResult.ParentWidgetName);
+		ResultObject->SetNumberField(TEXT("requestedIndex"), ReorderResult.RequestedIndex);
+		ResultObject->SetNumberField(TEXT("finalIndex"), ReorderResult.FinalIndex);
+		return ResultObject;
+	}
+
+	FReorderWidgetChildResult ReorderWidgetChild(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const int32 DesiredIndex,
+		const bool bSaveAsset) const
+	{
+		FReorderWidgetChildResult Result;
+		Result.RequestedIndex = DesiredIndex;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		if (DesiredIndex < 0)
+		{
+			Result.Message = TEXT("desiredIndex must be zero or greater.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const TargetWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (TargetWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		int32 ExistingIndex = INDEX_NONE;
+		UPanelWidget* const ParentWidget = UWidgetTree::FindWidgetParent(TargetWidget, ExistingIndex);
+		if (ParentWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget %s does not have a panel parent and cannot be reordered."),
+				*Result.WidgetName);
+			return Result;
+		}
+
+		Result.ParentWidgetName = ParentWidget->GetName();
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		ParentWidget->SetFlags(RF_Transactional);
+		ParentWidget->Modify();
+		TargetWidget->SetFlags(RF_Transactional);
+		TargetWidget->Modify();
+
+		if (EnsurePanelChildAt(ParentWidget, TargetWidget, DesiredIndex) == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to reorder widget %s under parent %s."),
+				*Result.WidgetName,
+				*Result.ParentWidgetName);
+			return Result;
+		}
+
+		Result.FinalIndex = ParentWidget->GetChildIndex(TargetWidget);
+		Result.bReordered = Result.FinalIndex != INDEX_NONE;
+		if (!Result.bReordered)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to resolve the final position of widget %s after reordering."),
+				*Result.WidgetName);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Reordered widget child but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Reordered widget child but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Reordered widget %s under %s to index %d."),
+			*Result.WidgetName,
+			*Result.ParentWidgetName,
+			Result.FinalIndex);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildRemoveWidgetObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const bool bSaveAsset) const
+	{
+		const FRemoveWidgetResult RemoveResult = RemoveWidgetFromBlueprint(AssetPath, WidgetName, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("removed"), RemoveResult.bRemoved);
+		ResultObject->SetBoolField(TEXT("saved"), RemoveResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), RemoveResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), RemoveResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), RemoveResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), RemoveResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), RemoveResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), RemoveResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), RemoveResult.WidgetName);
+		ResultObject->SetStringField(TEXT("parentWidgetName"), RemoveResult.ParentWidgetName);
+		return ResultObject;
+	}
+
+	FRemoveWidgetResult RemoveWidgetFromBlueprint(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const bool bSaveAsset) const
+	{
+		FRemoveWidgetResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const TargetWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (TargetWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		int32 ExistingIndex = INDEX_NONE;
+		if (UPanelWidget* const ParentWidget = UWidgetTree::FindWidgetParent(TargetWidget, ExistingIndex))
+		{
+			Result.ParentWidgetName = ParentWidget->GetName();
+		}
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		TargetWidget->SetFlags(RF_Transactional);
+		TargetWidget->Modify();
+
+		TSet<UWidget*> WidgetsToDelete;
+		WidgetsToDelete.Add(TargetWidget);
+		FWidgetBlueprintEditorUtils::DeleteWidgets(
+			WidgetBlueprint,
+			WidgetsToDelete,
+			FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
+
+		Result.bRemoved = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName)) == nullptr;
+		if (!Result.bRemoved)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to remove widget %s from %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Removed widget but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Removed widget but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Removed widget %s from %s."),
+			*Result.WidgetName,
+			*AssetObjectPath);
+		return Result;
+	}
+
 	TSharedRef<FJsonObject> BuildSetBlueprintClassPropertyObject(
 		const FString& AssetPath,
 		const FString& PropertyName,
@@ -2719,6 +3182,27 @@ private:
 		if (!ArgumentsObject->TryGetBoolField(FieldName, OutValue))
 		{
 			OutError = FString::Printf(TEXT("%s must be a boolean when provided."), *FieldName);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool TryGetRequiredIntArgument(
+		const TSharedPtr<FJsonObject>& ArgumentsObject,
+		const FString& FieldName,
+		int32& OutValue,
+		FString& OutError) const
+	{
+		if (!ArgumentsObject.IsValid() || !ArgumentsObject->HasField(FieldName))
+		{
+			OutError = FString::Printf(TEXT("%s is required."), *FieldName);
+			return false;
+		}
+
+		if (!ArgumentsObject->TryGetNumberField(FieldName, OutValue))
+		{
+			OutError = FString::Printf(TEXT("%s must be an integer."), *FieldName);
 			return false;
 		}
 
