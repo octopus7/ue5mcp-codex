@@ -26,6 +26,9 @@ protected:
 	TObjectPtr<UImage> PopupImage = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
+	TObjectPtr<UTextBlock> HeaderText = nullptr;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> TitleText = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
