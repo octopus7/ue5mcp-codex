@@ -81,6 +81,7 @@ namespace OctoMCP
 	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
 	const TCHAR* const CommandSetWidgetBackgroundBlur = TEXT("set_widget_background_blur");
 	const TCHAR* const CommandSetWidgetCornerRadius = TEXT("set_widget_corner_radius");
+	const TCHAR* const CommandSetWidgetPanelColor = TEXT("set_widget_panel_color");
 	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
 }
 
@@ -216,6 +217,23 @@ namespace
 		bool bSaved = false;
 		bool bSuccess = false;
 		float Radius = 0.0f;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString WidgetClassName;
+	};
+
+	struct FSetWidgetPanelColorResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		float Red = 0.0f;
+		float Green = 0.0f;
+		float Blue = 0.0f;
+		float Alpha = 0.0f;
 		FString Message;
 		FString AssetPath;
 		FString AssetObjectPath;
@@ -1039,6 +1057,117 @@ private:
 				ResponseObject->SetObjectField(
 					TEXT("result"),
 					BuildRemoveWidgetObject(AssetPath, WidgetName, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetWidgetPanelColor)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float Red = 0.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("red"), Red, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float Green = 0.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("green"), Green, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float Blue = 0.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("blue"), Blue, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float Alpha = 1.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("alpha"), Alpha, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, Red, Green, Blue, Alpha, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetWidgetPanelColorObject(AssetPath, WidgetName, Red, Green, Blue, Alpha, bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -2428,6 +2557,167 @@ private:
 			*Result.WidgetName,
 			*AssetObjectPath,
 			Result.Radius);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetWidgetPanelColorObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const float Red,
+		const float Green,
+		const float Blue,
+		const float Alpha,
+		const bool bSaveAsset) const
+	{
+		const FSetWidgetPanelColorResult SetResult =
+			SetWidgetPanelColor(AssetPath, WidgetName, Red, Green, Blue, Alpha, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetStringField(TEXT("widgetClassName"), SetResult.WidgetClassName);
+		ResultObject->SetNumberField(TEXT("red"), SetResult.Red);
+		ResultObject->SetNumberField(TEXT("green"), SetResult.Green);
+		ResultObject->SetNumberField(TEXT("blue"), SetResult.Blue);
+		ResultObject->SetNumberField(TEXT("alpha"), SetResult.Alpha);
+		return ResultObject;
+	}
+
+	FSetWidgetPanelColorResult SetWidgetPanelColor(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const float InRed,
+		const float InGreen,
+		const float InBlue,
+		const float InAlpha,
+		const bool bSaveAsset) const
+	{
+		FSetWidgetPanelColorResult Result;
+
+		auto NormalizeColorChannel = [](float Value) -> float
+		{
+			const float NormalizedValue = Value > 1.0f ? Value / 255.0f : Value;
+			return FMath::Clamp(NormalizedValue, 0.0f, 1.0f);
+		};
+
+		Result.Red = NormalizeColorChannel(InRed);
+		Result.Green = NormalizeColorChannel(InGreen);
+		Result.Blue = NormalizeColorChannel(InBlue);
+		Result.Alpha = NormalizeColorChannel(InAlpha);
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const TargetWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (TargetWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		const FLinearColor PanelColor(Result.Red, Result.Green, Result.Blue, Result.Alpha);
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		TargetWidget->SetFlags(RF_Transactional);
+		TargetWidget->Modify();
+
+		if (UBorder* const BorderWidget = Cast<UBorder>(TargetWidget))
+		{
+			BorderWidget->SetBrushColor(PanelColor);
+			Result.WidgetClassName = BorderWidget->GetClass()->GetName();
+		}
+		else if (UButton* const ButtonWidget = Cast<UButton>(TargetWidget))
+		{
+			ButtonWidget->SetBackgroundColor(PanelColor);
+			Result.WidgetClassName = ButtonWidget->GetClass()->GetName();
+		}
+		else if (UImage* const ImageWidget = Cast<UImage>(TargetWidget))
+		{
+			ImageWidget->SetColorAndOpacity(PanelColor);
+			Result.WidgetClassName = ImageWidget->GetClass()->GetName();
+		}
+		else
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget %s does not support direct RGBA panel color updates. Supported widget classes are Border, Button, and Image."),
+				*Result.WidgetName);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget panel color but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated widget panel color but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set widget %s on %s to RGBA(%.3f, %.3f, %.3f, %.3f)."),
+			*Result.WidgetName,
+			*AssetObjectPath,
+			Result.Red,
+			Result.Green,
+			Result.Blue,
+			Result.Alpha);
 		return Result;
 	}
 
