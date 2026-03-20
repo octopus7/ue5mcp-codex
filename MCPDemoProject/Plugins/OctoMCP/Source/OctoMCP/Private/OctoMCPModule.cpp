@@ -1,11 +1,14 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "Async/Async.h"
+#include "AssetRegistry/AssetData.h"
 #include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/IAssetRegistry.h"
 #include "AssetToolsModule.h"
 #include "Blueprint/WidgetTree.h"
 #include "Blueprint/UserWidget.h"
 #include "EditorFramework/AssetImportData.h"
+#include "FileHelpers.h"
 #include "Components/BackgroundBlur.h"
 #include "Components/Border.h"
 #include "Components/Button.h"
@@ -30,6 +33,7 @@
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Engine/Texture2D.h"
+#include "Engine/World.h"
 #include "Factories/BlueprintFactory.h"
 #include "Factories/TextureFactory.h"
 #include "GameMapsSettings.h"
@@ -92,12 +96,16 @@ namespace OctoMCP
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
 	const TCHAR* const CommandSetBlueprintClassProperty = TEXT("set_blueprint_class_property");
 	const TCHAR* const CommandSetGlobalDefaultGameMode = TEXT("set_global_default_game_mode");
+	const TCHAR* const CommandBootstrapProjectMap = TEXT("bootstrap_project_map");
 	const TCHAR* const CommandSetWidgetBackgroundBlur = TEXT("set_widget_background_blur");
 	const TCHAR* const CommandSetWidgetCornerRadius = TEXT("set_widget_corner_radius");
 	const TCHAR* const CommandSetWidgetPanelColor = TEXT("set_widget_panel_color");
 	const TCHAR* const CommandSetSizeBoxHeightOverride = TEXT("set_size_box_height_override");
 	const TCHAR* const CommandSetPopupOpenElasticScale = TEXT("set_popup_open_elastic_scale");
 	const TCHAR* const CommandSetWidgetImageTexture = TEXT("set_widget_image_texture");
+	const TCHAR* const BootstrapTemplateMapPath = TEXT("/Engine/Maps/Templates/Template_Default");
+	const TCHAR* const DefaultBootstrapLevelFileName = TEXT("BasicMap");
+	const TCHAR* const DefaultBootstrapDirectoryPath = TEXT("/Game/Maps");
 }
 
 namespace
@@ -414,6 +422,21 @@ namespace
 		bool bSuccess = false;
 		FString Message;
 		FString GameModeClassPath;
+	};
+
+	struct FBootstrapProjectMapResult
+	{
+		bool bBootstrapped = false;
+		bool bCreated = false;
+		bool bForceCreate = false;
+		bool bSavedConfig = false;
+		bool bSuccess = false;
+		int32 ExistingLevelCount = 0;
+		FString Message;
+		FString LevelFileName;
+		FString DirectoryPath;
+		FString LevelAssetPath;
+		FString LevelObjectPath;
 	};
 }
 
@@ -2276,6 +2299,71 @@ private:
 				ResponseObject->SetObjectField(
 					TEXT("result"),
 					BuildSetGlobalDefaultGameModeObject(GameModeClassPath, bSaveConfig));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandBootstrapProjectMap)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString LevelFileName = OctoMCP::DefaultBootstrapLevelFileName;
+			if (!TryGetOptionalStringArgument(ArgumentsObject, TEXT("levelFileName"), LevelFileName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString DirectoryPath = OctoMCP::DefaultBootstrapDirectoryPath;
+			if (!TryGetOptionalStringArgument(ArgumentsObject, TEXT("directoryPath"), DirectoryPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bForceCreate = false;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("forceCreate"), bForceCreate, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, LevelFileName, DirectoryPath, bForceCreate]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildBootstrapProjectMapObject(LevelFileName, DirectoryPath, bForceCreate));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -5571,6 +5659,168 @@ private:
 		return Result;
 	}
 
+	TSharedRef<FJsonObject> BuildBootstrapProjectMapObject(
+		const FString& LevelFileName,
+		const FString& DirectoryPath,
+		const bool bForceCreate) const
+	{
+		const FBootstrapProjectMapResult BootstrapResult =
+			BootstrapProjectMap(LevelFileName, DirectoryPath, bForceCreate);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("bootstrapped"), BootstrapResult.bBootstrapped);
+		ResultObject->SetBoolField(TEXT("created"), BootstrapResult.bCreated);
+		ResultObject->SetBoolField(TEXT("forceCreate"), BootstrapResult.bForceCreate);
+		ResultObject->SetBoolField(TEXT("savedConfig"), BootstrapResult.bSavedConfig);
+		ResultObject->SetBoolField(TEXT("success"), BootstrapResult.bSuccess);
+		ResultObject->SetNumberField(TEXT("existingLevelCount"), BootstrapResult.ExistingLevelCount);
+		ResultObject->SetStringField(TEXT("message"), BootstrapResult.Message);
+		ResultObject->SetStringField(TEXT("levelFileName"), BootstrapResult.LevelFileName);
+		ResultObject->SetStringField(TEXT("directoryPath"), BootstrapResult.DirectoryPath);
+		ResultObject->SetStringField(TEXT("levelAssetPath"), BootstrapResult.LevelAssetPath);
+		ResultObject->SetStringField(TEXT("levelObjectPath"), BootstrapResult.LevelObjectPath);
+		return ResultObject;
+	}
+
+	FBootstrapProjectMapResult BootstrapProjectMap(
+		const FString& InLevelFileName,
+		const FString& InDirectoryPath,
+		const bool bForceCreate) const
+	{
+		FBootstrapProjectMapResult Result;
+		Result.bForceCreate = bForceCreate;
+
+		Result.LevelFileName = InLevelFileName.TrimStartAndEnd();
+		if (Result.LevelFileName.IsEmpty())
+		{
+			Result.Message = TEXT("levelFileName must not be empty.");
+			return Result;
+		}
+
+		if (Result.LevelFileName.Contains(TEXT("/"))
+			|| Result.LevelFileName.Contains(TEXT("\\"))
+			|| Result.LevelFileName.Contains(TEXT(".")))
+		{
+			Result.Message = TEXT("levelFileName must be a plain asset name without path separators or dots.");
+			return Result;
+		}
+
+		Result.DirectoryPath = InDirectoryPath.TrimStartAndEnd();
+		while (Result.DirectoryPath.EndsWith(TEXT("/")))
+		{
+			Result.DirectoryPath.LeftChopInline(1, EAllowShrinking::No);
+		}
+
+		if (Result.DirectoryPath.IsEmpty())
+		{
+			Result.Message = TEXT("directoryPath must not be empty.");
+			return Result;
+		}
+
+		if (Result.DirectoryPath != TEXT("/Game") && !Result.DirectoryPath.StartsWith(TEXT("/Game/")))
+		{
+			Result.Message = TEXT("directoryPath must be under /Game.");
+			return Result;
+		}
+
+		Result.LevelAssetPath = FString::Printf(TEXT("%s/%s"), *Result.DirectoryPath, *Result.LevelFileName);
+		Result.LevelObjectPath = FString::Printf(TEXT("%s.%s"), *Result.LevelAssetPath, *Result.LevelFileName);
+
+		FText ValidationError;
+		if (!FPackageName::IsValidLongPackageName(Result.LevelAssetPath, false, &ValidationError))
+		{
+			Result.Message = ValidationError.ToString();
+			return Result;
+		}
+
+		if (FPackageName::DoesPackageExist(Result.LevelAssetPath))
+		{
+			Result.Message = FString::Printf(
+				TEXT("A package already exists at %s."),
+				*Result.LevelAssetPath);
+			return Result;
+		}
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+		TArray<FString> PathsToScan;
+		PathsToScan.Add(TEXT("/Game"));
+		AssetRegistry.ScanPathsSynchronous(PathsToScan, false);
+
+		TArray<FAssetData> WorldAssets;
+		AssetRegistry.GetAssetsByClass(UWorld::StaticClass()->GetClassPathName(), WorldAssets, true);
+		for (const FAssetData& AssetData : WorldAssets)
+		{
+			const FString PackageName = AssetData.PackageName.ToString();
+			if (PackageName == TEXT("/Game") || PackageName.StartsWith(TEXT("/Game/")))
+			{
+				++Result.ExistingLevelCount;
+			}
+		}
+
+		if (!Result.bForceCreate && Result.ExistingLevelCount > 0)
+		{
+			Result.bSuccess = true;
+			Result.Message = FString::Printf(
+				TEXT("Project already contains %d level(s) under /Game. Skipped bootstrap."),
+				Result.ExistingLevelCount);
+			return Result;
+		}
+
+		UWorld* const NewWorld = UEditorLoadingAndSavingUtils::NewMapFromTemplate(OctoMCP::BootstrapTemplateMapPath, true);
+		if (NewWorld == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not create a new map from template %s."),
+				OctoMCP::BootstrapTemplateMapPath);
+			return Result;
+		}
+
+		if (!UEditorLoadingAndSavingUtils::SaveMap(NewWorld, Result.LevelAssetPath))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Created a map from template %s but failed to save it as %s."),
+				OctoMCP::BootstrapTemplateMapPath,
+				*Result.LevelAssetPath);
+			return Result;
+		}
+
+		Result.bCreated = true;
+
+		UGameMapsSettings* const GameMapsSettings = GetMutableDefault<UGameMapsSettings>();
+		if (GameMapsSettings == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Created the bootstrap map %s but could not access GameMapsSettings."),
+				*Result.LevelObjectPath);
+			return Result;
+		}
+
+		UGameMapsSettings::SetGameDefaultMap(Result.LevelObjectPath);
+#if WITH_EDITORONLY_DATA
+		GameMapsSettings->EditorStartupMap = FSoftObjectPath(Result.LevelObjectPath);
+#endif
+
+		GameMapsSettings->SaveConfig();
+		Result.bSavedConfig = GameMapsSettings->TryUpdateDefaultConfigFile(TEXT(""), false);
+		if (!Result.bSavedConfig)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Created the bootstrap map %s but failed to write DefaultEngine.ini."),
+				*Result.LevelObjectPath);
+			return Result;
+		}
+
+		Result.bBootstrapped = true;
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Bootstrapped %s from %s and set it as the GameDefaultMap and EditorStartupMap (forceCreate=%s)."),
+			*Result.LevelObjectPath,
+			OctoMCP::BootstrapTemplateMapPath,
+			Result.bForceCreate ? TEXT("true") : TEXT("false"));
+		return Result;
+	}
+
 	TSharedRef<FJsonObject> BuildScaffoldWidgetBlueprintObject(
 		const FString& AssetPath,
 		const FString& ScaffoldType,
@@ -7040,6 +7290,33 @@ private:
 		if (!ArgumentsObject->TryGetBoolField(FieldName, OutValue))
 		{
 			OutError = FString::Printf(TEXT("%s must be a boolean when provided."), *FieldName);
+			return false;
+		}
+
+		return true;
+	}
+
+	bool TryGetOptionalStringArgument(
+		const TSharedPtr<FJsonObject>& ArgumentsObject,
+		const FString& FieldName,
+		FString& OutValue,
+		FString& OutError) const
+	{
+		if (!ArgumentsObject.IsValid() || !ArgumentsObject->HasField(FieldName))
+		{
+			return true;
+		}
+
+		if (!ArgumentsObject->TryGetStringField(FieldName, OutValue))
+		{
+			OutError = FString::Printf(TEXT("%s must be a string when provided."), *FieldName);
+			return false;
+		}
+
+		OutValue = OutValue.TrimStartAndEnd();
+		if (OutValue.IsEmpty())
+		{
+			OutError = FString::Printf(TEXT("%s must not be empty when provided."), *FieldName);
 			return false;
 		}
 

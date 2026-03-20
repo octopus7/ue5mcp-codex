@@ -37,6 +37,7 @@ REMOVE_WIDGET_TIMEOUT_SECONDS = 30.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 SET_BLUEPRINT_CLASS_PROPERTY_TIMEOUT_SECONDS = 30.0
 SET_GLOBAL_DEFAULT_GAME_MODE_TIMEOUT_SECONDS = 15.0
+BOOTSTRAP_PROJECT_MAP_TIMEOUT_SECONDS = 60.0
 SET_WIDGET_BACKGROUND_BLUR_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_CORNER_RADIUS_TIMEOUT_SECONDS = 30.0
 SET_WIDGET_IMAGE_TEXTURE_TIMEOUT_SECONDS = 30.0
@@ -58,6 +59,7 @@ REMOVE_WIDGET_TOOL_NAME = "ue_remove_widget"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
 SET_BLUEPRINT_CLASS_PROPERTY_TOOL_NAME = "ue_set_blueprint_class_property"
 SET_GLOBAL_DEFAULT_GAME_MODE_TOOL_NAME = "ue_set_global_default_game_mode"
+BOOTSTRAP_PROJECT_MAP_TOOL_NAME = "ue_bootstrap_project_map"
 SET_WIDGET_BACKGROUND_BLUR_TOOL_NAME = "ue_set_widget_background_blur"
 SET_WIDGET_CORNER_RADIUS_TOOL_NAME = "ue_set_widget_corner_radius"
 SET_WIDGET_IMAGE_TEXTURE_TOOL_NAME = "ue_set_widget_image_texture"
@@ -1580,6 +1582,72 @@ def build_set_global_default_game_mode_tool_definition() -> dict[str, Any]:
                 "success",
                 "message",
                 "gameModeClassPath",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_bootstrap_project_map_tool_definition() -> dict[str, Any]:
+    return {
+        "name": BOOTSTRAP_PROJECT_MAP_TOOL_NAME,
+        "title": "Bootstrap Unreal project map",
+        "description": (
+            "If the project has no maps under /Game, create one from the engine's basic template and "
+            "set it as both GameDefaultMap and EditorStartupMap."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "levelFileName": {
+                    "type": "string",
+                    "default": "BasicMap",
+                    "description": "Asset name to give the new level package.",
+                },
+                "directoryPath": {
+                    "type": "string",
+                    "default": "/Game/Maps",
+                    "description": "Project content path where the new level should be saved.",
+                },
+                "forceCreate": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Bypass the existing /Game level check and create the map anyway.",
+                },
+            },
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "bootstrapped": {"type": "boolean"},
+                "created": {"type": "boolean"},
+                "forceCreate": {"type": "boolean"},
+                "savedConfig": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "existingLevelCount": {"type": "integer"},
+                "message": {"type": "string"},
+                "levelFileName": {"type": "string"},
+                "directoryPath": {"type": "string"},
+                "levelAssetPath": {"type": "string"},
+                "levelObjectPath": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "bootstrapped",
+                "created",
+                "forceCreate",
+                "savedConfig",
+                "success",
+                "existingLevelCount",
+                "message",
+                "levelFileName",
+                "directoryPath",
+                "levelAssetPath",
+                "levelObjectPath",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -3505,6 +3573,85 @@ def build_set_global_default_game_mode_tool_error(
     }
 
 
+def build_bootstrap_project_map_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    level_file_name = arguments.get("levelFileName", "BasicMap")
+    if not isinstance(level_file_name, str) or not level_file_name.strip():
+        raise JsonRpcError(-32602, "ue_bootstrap_project_map.levelFileName must be a non-empty string.")
+
+    directory_path = arguments.get("directoryPath", "/Game/Maps")
+    if not isinstance(directory_path, str) or not directory_path.strip():
+        raise JsonRpcError(-32602, "ue_bootstrap_project_map.directoryPath must be a non-empty string.")
+
+    force_create = arguments.get("forceCreate", False)
+    if not isinstance(force_create, bool):
+        raise JsonRpcError(-32602, "ue_bootstrap_project_map.forceCreate must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "bootstrap_project_map",
+        {
+            "levelFileName": level_file_name,
+            "directoryPath": directory_path,
+            "forceCreate": force_create,
+        },
+        timeout_seconds=BOOTSTRAP_PROJECT_MAP_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "bootstrapped": bool(bridge_result.get("bootstrapped", False)),
+        "created": bool(bridge_result.get("created", False)),
+        "forceCreate": bool(bridge_result.get("forceCreate", force_create)),
+        "savedConfig": bool(bridge_result.get("savedConfig", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "existingLevelCount": int(bridge_result.get("existingLevelCount", 0)),
+        "message": str(bridge_result.get("message", "")),
+        "levelFileName": str(bridge_result.get("levelFileName", level_file_name)),
+        "directoryPath": str(bridge_result.get("directoryPath", directory_path)),
+        "levelAssetPath": str(bridge_result.get("levelAssetPath", "")),
+        "levelObjectPath": str(bridge_result.get("levelObjectPath", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"bootstrapped={structured_content['bootstrapped']} | "
+        f"forceCreate={structured_content['forceCreate']} | "
+        f"level={structured_content['levelAssetPath'] or structured_content['levelObjectPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_bootstrap_project_map_tool_error(
+    message: str, editor_reachable: bool, level_file_name: str, directory_path: str, force_create: bool
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "bootstrapped": False,
+        "created": False,
+        "forceCreate": force_create,
+        "savedConfig": False,
+        "success": False,
+        "existingLevelCount": 0,
+        "message": message,
+        "levelFileName": level_file_name,
+        "directoryPath": directory_path,
+        "levelAssetPath": "",
+        "levelObjectPath": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
 def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
     if not isinstance(params, dict):
         raise JsonRpcError(-32602, "initialize params must be an object.")
@@ -3546,7 +3693,8 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_scaffold_widget_blueprint to populate an existing Widget Blueprint with a predefined tree, "
                 "ue_set_blueprint_class_property to wire Blueprint class-reference defaults, "
                 "ue_set_widget_image_texture to assign a texture to a UImage in a Widget Blueprint, "
-                "or ue_set_global_default_game_mode to update the project's default GameMode."
+                "ue_set_global_default_game_mode to update the project's default GameMode, "
+                "or ue_bootstrap_project_map to create a starter map when the project has no levels."
             ),
         },
     )
@@ -3579,6 +3727,7 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_set_blueprint_class_property_tool_definition(),
                 build_set_widget_image_texture_tool_definition(),
                 build_set_global_default_game_mode_tool_definition(),
+                build_bootstrap_project_map_tool_definition(),
             ]
         },
     )
@@ -4041,6 +4190,28 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 str(exc),
                 exc.editor_reachable,
                 str(game_mode_class_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == BOOTSTRAP_PROJECT_MAP_TOOL_NAME:
+        level_file_name = tool_arguments.get("levelFileName", "BasicMap")
+        if level_file_name is not None and not isinstance(level_file_name, str):
+            raise JsonRpcError(-32602, "ue_bootstrap_project_map.levelFileName must be a string.")
+        directory_path = tool_arguments.get("directoryPath", "/Game/Maps")
+        if directory_path is not None and not isinstance(directory_path, str):
+            raise JsonRpcError(-32602, "ue_bootstrap_project_map.directoryPath must be a string.")
+        force_create = tool_arguments.get("forceCreate", False)
+        if force_create is not None and not isinstance(force_create, bool):
+            raise JsonRpcError(-32602, "ue_bootstrap_project_map.forceCreate must be a boolean.")
+        try:
+            result = build_bootstrap_project_map_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_bootstrap_project_map_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(level_file_name or ""),
+                str(directory_path or ""),
+                bool(force_create),
             )
         return make_response(message_id, result)
 
