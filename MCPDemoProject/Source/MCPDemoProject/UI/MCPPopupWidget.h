@@ -29,9 +29,6 @@ protected:
 	TObjectPtr<UTextBlock> HeaderText = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
-	TObjectPtr<UTextBlock> TitleText = nullptr;
-
-	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
 	TObjectPtr<UTextBlock> BodyText = nullptr;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Popup", meta = (BindWidgetOptional))
