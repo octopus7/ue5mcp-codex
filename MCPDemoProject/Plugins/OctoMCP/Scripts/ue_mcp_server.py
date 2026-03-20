@@ -1337,7 +1337,7 @@ def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
         "title": "Scaffold Unreal Widget Blueprint",
         "description": (
             "Populate an existing Widget Blueprint asset with a predefined widget-tree scaffold. "
-            "Supports popup, bottom button bar, scroll UniformGrid host, TileView host, and TileView entry scaffolds."
+            "Supports popup, bottom button bar, scroll UniformGrid host, TileView host, TileView entry, item tile popup, and item tile entry scaffolds."
         ),
         "inputSchema": {
             "type": "object",
@@ -1357,6 +1357,8 @@ def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
                         "scroll_uniform_grid_host",
                         "tile_view_host",
                         "tile_view_entry",
+                        "item_tile_popup",
+                        "item_tile_entry",
                     ],
                     "description": "Predefined widget tree scaffold to apply to the target Widget Blueprint.",
                 },
@@ -3200,12 +3202,14 @@ def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> d
         "scroll_uniform_grid_host",
         "tile_view_host",
         "tile_view_entry",
+        "item_tile_popup",
+        "item_tile_entry",
     }:
         raise JsonRpcError(
             -32602,
             (
                 "ue_scaffold_widget_blueprint.scaffoldType must be one of: popup, bottom_button_bar, "
-                "scroll_uniform_grid_host, tile_view_host, tile_view_entry."
+                "scroll_uniform_grid_host, tile_view_host, tile_view_entry, item_tile_popup, item_tile_entry."
             ),
         )
 
