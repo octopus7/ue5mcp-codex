@@ -27,6 +27,11 @@ LIVE_CODING_NOWAIT_TIMEOUT_SECONDS = 15.0
 CREATE_BLUEPRINT_ASSET_TIMEOUT_SECONDS = 30.0
 CREATE_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
 IMPORT_TEXTURE_ASSET_TIMEOUT_SECONDS = 60.0
+ADD_WIDGET_BLUEPRINT_CHILD_INSTANCE_TIMEOUT_SECONDS = 30.0
+SET_UNIFORM_GRID_SLOT_TIMEOUT_SECONDS = 30.0
+SYNC_UNIFORM_GRID_WIDGET_INSTANCES_TIMEOUT_SECONDS = 60.0
+ADD_BLUEPRINT_INTERFACE_TIMEOUT_SECONDS = 30.0
+CONFIGURE_TILE_VIEW_TIMEOUT_SECONDS = 30.0
 REORDER_WIDGET_CHILD_TIMEOUT_SECONDS = 30.0
 REMOVE_WIDGET_TIMEOUT_SECONDS = 30.0
 SCAFFOLD_WIDGET_BLUEPRINT_TIMEOUT_SECONDS = 30.0
@@ -43,6 +48,11 @@ LIVE_CODING_TOOL_NAME = "ue_live_coding_compile"
 CREATE_BLUEPRINT_ASSET_TOOL_NAME = "ue_create_blueprint_asset"
 CREATE_WIDGET_BLUEPRINT_TOOL_NAME = "ue_create_widget_blueprint"
 IMPORT_TEXTURE_ASSET_TOOL_NAME = "ue_import_texture_asset"
+ADD_WIDGET_BLUEPRINT_CHILD_INSTANCE_TOOL_NAME = "ue_add_widget_blueprint_child_instance"
+SET_UNIFORM_GRID_SLOT_TOOL_NAME = "ue_set_uniform_grid_slot"
+SYNC_UNIFORM_GRID_WIDGET_INSTANCES_TOOL_NAME = "ue_sync_uniform_grid_widget_instances"
+ADD_BLUEPRINT_INTERFACE_TOOL_NAME = "ue_add_blueprint_interface"
+CONFIGURE_TILE_VIEW_TOOL_NAME = "ue_configure_tile_view"
 REORDER_WIDGET_CHILD_TOOL_NAME = "ue_reorder_widget_child"
 REMOVE_WIDGET_TOOL_NAME = "ue_remove_widget"
 SCAFFOLD_WIDGET_BLUEPRINT_TOOL_NAME = "ue_scaffold_widget_blueprint"
@@ -404,6 +414,385 @@ def build_import_texture_asset_tool_definition() -> dict[str, Any]:
                 "assetObjectPath",
                 "packagePath",
                 "assetName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_add_widget_blueprint_child_instance_tool_definition() -> dict[str, Any]:
+    return {
+        "name": ADD_WIDGET_BLUEPRINT_CHILD_INSTANCE_TOOL_NAME,
+        "title": "Add Widget Blueprint child instance",
+        "description": (
+            "Instantiate another Widget Blueprint as a named child under a panel widget inside a Widget Blueprint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to update.",
+                },
+                "parentWidgetName": {
+                    "type": "string",
+                    "description": "Name of the target panel widget inside the host Widget Blueprint.",
+                },
+                "childWidgetAssetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to instantiate as the child.",
+                },
+                "childWidgetName": {
+                    "type": "string",
+                    "description": "Unique widget-tree name to give the inserted child instance.",
+                },
+                "desiredIndex": {
+                    "type": "integer",
+                    "description": "Zero-based target index within the parent panel.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": [
+                "assetPath",
+                "parentWidgetName",
+                "childWidgetAssetPath",
+                "childWidgetName",
+                "desiredIndex",
+            ],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "created": {"type": "boolean"},
+                "replaced": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "parentWidgetName": {"type": "string"},
+                "childWidgetName": {"type": "string"},
+                "childWidgetAssetPath": {"type": "string"},
+                "childWidgetClassPath": {"type": "string"},
+                "childWidgetClassName": {"type": "string"},
+                "finalIndex": {"type": "integer"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "created",
+                "replaced",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "parentWidgetName",
+                "childWidgetName",
+                "childWidgetAssetPath",
+                "childWidgetClassPath",
+                "childWidgetClassName",
+                "finalIndex",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_set_uniform_grid_slot_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SET_UNIFORM_GRID_SLOT_TOOL_NAME,
+        "title": "Set UniformGrid slot",
+        "description": (
+            "Set the row and column for a named widget currently slotted under a UniformGridPanel."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {"type": "string", "description": "Widget Blueprint asset path to update."},
+                "widgetName": {"type": "string", "description": "Name of the child widget to update."},
+                "row": {"type": "integer", "description": "Zero-based target row."},
+                "column": {"type": "integer", "description": "Zero-based target column."},
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "row", "column"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "parentWidgetName": {"type": "string"},
+                "row": {"type": "integer"},
+                "column": {"type": "integer"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "parentWidgetName",
+                "row",
+                "column",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_sync_uniform_grid_widget_instances_tool_definition() -> dict[str, Any]:
+    return {
+        "name": SYNC_UNIFORM_GRID_WIDGET_INSTANCES_TOOL_NAME,
+        "title": "Sync UniformGrid widget instances",
+        "description": (
+            "Synchronize a managed set of repeated Widget Blueprint child instances under a UniformGridPanel."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {"type": "string", "description": "Widget Blueprint asset path to update."},
+                "gridWidgetName": {"type": "string", "description": "Name of the target UniformGridPanel widget."},
+                "entryWidgetAssetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to instantiate for each managed grid cell.",
+                },
+                "count": {"type": "integer", "description": "Number of managed instances to keep in the grid."},
+                "columnCount": {"type": "integer", "description": "Number of columns to use when computing row and column."},
+                "instanceNamePrefix": {
+                    "type": "string",
+                    "description": "Prefix used to name and manage repeated child instances.",
+                },
+                "trimManagedChildren": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Remove managed prefix children that are no longer needed.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": [
+                "assetPath",
+                "gridWidgetName",
+                "entryWidgetAssetPath",
+                "count",
+                "columnCount",
+                "instanceNamePrefix",
+            ],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "trimManagedChildren": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "gridWidgetName": {"type": "string"},
+                "entryWidgetAssetPath": {"type": "string"},
+                "entryWidgetClassPath": {"type": "string"},
+                "entryWidgetClassName": {"type": "string"},
+                "instanceNamePrefix": {"type": "string"},
+                "count": {"type": "integer"},
+                "columnCount": {"type": "integer"},
+                "createdCount": {"type": "integer"},
+                "reusedCount": {"type": "integer"},
+                "removedCount": {"type": "integer"},
+                "managedCount": {"type": "integer"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "trimManagedChildren",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "gridWidgetName",
+                "entryWidgetAssetPath",
+                "entryWidgetClassPath",
+                "entryWidgetClassName",
+                "instanceNamePrefix",
+                "count",
+                "columnCount",
+                "createdCount",
+                "reusedCount",
+                "removedCount",
+                "managedCount",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_add_blueprint_interface_tool_definition() -> dict[str, Any]:
+    return {
+        "name": ADD_BLUEPRINT_INTERFACE_TOOL_NAME,
+        "title": "Add Blueprint interface",
+        "description": "Implement an interface on a Blueprint or Widget Blueprint asset.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {"type": "string", "description": "Blueprint asset path to update."},
+                "interfaceClassPath": {
+                    "type": "string",
+                    "description": "Interface class path such as /Script/UMG.UserObjectListEntry.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "interfaceClassPath"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "added": {"type": "boolean"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "interfaceClassPath": {"type": "string"},
+                "interfaceClassName": {"type": "string"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "added",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "interfaceClassPath",
+                "interfaceClassName",
+                "editorReachable",
+            ],
+            "additionalProperties": False,
+        },
+    }
+
+
+def build_configure_tile_view_tool_definition() -> dict[str, Any]:
+    return {
+        "name": CONFIGURE_TILE_VIEW_TOOL_NAME,
+        "title": "Configure TileView",
+        "description": (
+            "Assign the entry widget class and layout sizing/orientation for a named UTileView inside a Widget Blueprint."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "assetPath": {"type": "string", "description": "Widget Blueprint asset path to update."},
+                "widgetName": {"type": "string", "description": "Name of the target UTileView widget."},
+                "entryWidgetAssetPath": {
+                    "type": "string",
+                    "description": "Widget Blueprint asset path to use as the TileView entry widget class.",
+                },
+                "entryWidth": {"type": "number", "description": "Width to apply to each tile entry."},
+                "entryHeight": {"type": "number", "description": "Height to apply to each tile entry."},
+                "orientation": {
+                    "type": "string",
+                    "default": "Vertical",
+                    "enum": ["Vertical", "Horizontal"],
+                    "description": "TileView scroll/item orientation.",
+                },
+                "saveAsset": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Save the updated Widget Blueprint asset to disk before responding.",
+                },
+            },
+            "required": ["assetPath", "widgetName", "entryWidgetAssetPath", "entryWidth", "entryHeight"],
+            "additionalProperties": False,
+        },
+        "outputSchema": {
+            "type": "object",
+            "properties": {
+                "mcpProtocolVersion": {"type": "string"},
+                "saved": {"type": "boolean"},
+                "success": {"type": "boolean"},
+                "message": {"type": "string"},
+                "assetPath": {"type": "string"},
+                "assetObjectPath": {"type": "string"},
+                "packagePath": {"type": "string"},
+                "assetName": {"type": "string"},
+                "widgetName": {"type": "string"},
+                "entryWidgetAssetPath": {"type": "string"},
+                "entryWidgetClassPath": {"type": "string"},
+                "entryWidgetClassName": {"type": "string"},
+                "orientation": {"type": "string"},
+                "entryWidth": {"type": "number"},
+                "entryHeight": {"type": "number"},
+                "editorReachable": {"type": "boolean"},
+            },
+            "required": [
+                "mcpProtocolVersion",
+                "saved",
+                "success",
+                "message",
+                "assetPath",
+                "assetObjectPath",
+                "packagePath",
+                "assetName",
+                "widgetName",
+                "entryWidgetAssetPath",
+                "entryWidgetClassPath",
+                "entryWidgetClassName",
+                "orientation",
+                "entryWidth",
+                "entryHeight",
                 "editorReachable",
             ],
             "additionalProperties": False,
@@ -948,7 +1337,7 @@ def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
         "title": "Scaffold Unreal Widget Blueprint",
         "description": (
             "Populate an existing Widget Blueprint asset with a predefined widget-tree scaffold. "
-            "Currently supports popup and bottom button bar scaffolds."
+            "Supports popup, bottom button bar, scroll UniformGrid host, TileView host, and TileView entry scaffolds."
         ),
         "inputSchema": {
             "type": "object",
@@ -962,7 +1351,13 @@ def build_scaffold_widget_blueprint_tool_definition() -> dict[str, Any]:
                 },
                 "scaffoldType": {
                     "type": "string",
-                    "enum": ["popup", "bottom_button_bar"],
+                    "enum": [
+                        "popup",
+                        "bottom_button_bar",
+                        "scroll_uniform_grid_host",
+                        "tile_view_host",
+                        "tile_view_entry",
+                    ],
                     "description": "Predefined widget tree scaffold to apply to the target Widget Blueprint.",
                 },
                 "saveAsset": {
@@ -1609,6 +2004,520 @@ def build_import_texture_asset_tool_error(
         "assetObjectPath": "",
         "packagePath": "",
         "assetName": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_add_widget_blueprint_child_instance_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.assetPath must be a non-empty string.")
+
+    parent_widget_name = arguments.get("parentWidgetName")
+    if not isinstance(parent_widget_name, str) or not parent_widget_name.strip():
+        raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.parentWidgetName must be a non-empty string.")
+
+    child_widget_asset_path = arguments.get("childWidgetAssetPath")
+    if not isinstance(child_widget_asset_path, str) or not child_widget_asset_path.strip():
+        raise JsonRpcError(
+            -32602, "ue_add_widget_blueprint_child_instance.childWidgetAssetPath must be a non-empty string."
+        )
+
+    child_widget_name = arguments.get("childWidgetName")
+    if not isinstance(child_widget_name, str) or not child_widget_name.strip():
+        raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.childWidgetName must be a non-empty string.")
+
+    desired_index = arguments.get("desiredIndex")
+    if not isinstance(desired_index, int):
+        raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.desiredIndex must be an integer.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "add_widget_blueprint_child_instance",
+        {
+            "assetPath": asset_path,
+            "parentWidgetName": parent_widget_name,
+            "childWidgetAssetPath": child_widget_asset_path,
+            "childWidgetName": child_widget_name,
+            "desiredIndex": desired_index,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=ADD_WIDGET_BLUEPRINT_CHILD_INSTANCE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "created": bool(bridge_result.get("created", False)),
+        "replaced": bool(bridge_result.get("replaced", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "parentWidgetName": str(bridge_result.get("parentWidgetName", parent_widget_name)),
+        "childWidgetName": str(bridge_result.get("childWidgetName", child_widget_name)),
+        "childWidgetAssetPath": str(bridge_result.get("childWidgetAssetPath", child_widget_asset_path)),
+        "childWidgetClassPath": str(bridge_result.get("childWidgetClassPath", "")),
+        "childWidgetClassName": str(bridge_result.get("childWidgetClassName", "")),
+        "finalIndex": int(bridge_result.get("finalIndex", -1)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"created={structured_content['created']} | "
+        f"replaced={structured_content['replaced']} | "
+        f"parent={structured_content['parentWidgetName']} | "
+        f"child={structured_content['childWidgetName']} | "
+        f"index={structured_content['finalIndex']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_add_widget_blueprint_child_instance_tool_error(
+    message: str,
+    editor_reachable: bool,
+    asset_path: str,
+    parent_widget_name: str,
+    child_widget_asset_path: str,
+    child_widget_name: str,
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "created": False,
+        "replaced": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "parentWidgetName": parent_widget_name,
+        "childWidgetName": child_widget_name,
+        "childWidgetAssetPath": child_widget_asset_path,
+        "childWidgetClassPath": "",
+        "childWidgetClassName": "",
+        "finalIndex": -1,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_set_uniform_grid_slot_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.widgetName must be a non-empty string.")
+
+    row = arguments.get("row")
+    if not isinstance(row, int):
+        raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.row must be an integer.")
+
+    column = arguments.get("column")
+    if not isinstance(column, int):
+        raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.column must be an integer.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "set_uniform_grid_slot",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "row": row,
+            "column": column,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SET_UNIFORM_GRID_SLOT_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "parentWidgetName": str(bridge_result.get("parentWidgetName", "")),
+        "row": int(bridge_result.get("row", row)),
+        "column": int(bridge_result.get("column", column)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"widget={structured_content['widgetName']} | "
+        f"row={structured_content['row']} | "
+        f"column={structured_content['column']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_set_uniform_grid_slot_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str, row: int, column: int
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "parentWidgetName": "",
+        "row": row,
+        "column": column,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_sync_uniform_grid_widget_instances_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.assetPath must be a non-empty string.")
+
+    grid_widget_name = arguments.get("gridWidgetName")
+    if not isinstance(grid_widget_name, str) or not grid_widget_name.strip():
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.gridWidgetName must be a non-empty string.")
+
+    entry_widget_asset_path = arguments.get("entryWidgetAssetPath")
+    if not isinstance(entry_widget_asset_path, str) or not entry_widget_asset_path.strip():
+        raise JsonRpcError(
+            -32602, "ue_sync_uniform_grid_widget_instances.entryWidgetAssetPath must be a non-empty string."
+        )
+
+    count = arguments.get("count")
+    if not isinstance(count, int):
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.count must be an integer.")
+
+    column_count = arguments.get("columnCount")
+    if not isinstance(column_count, int):
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.columnCount must be an integer.")
+
+    instance_name_prefix = arguments.get("instanceNamePrefix")
+    if not isinstance(instance_name_prefix, str) or not instance_name_prefix.strip():
+        raise JsonRpcError(
+            -32602, "ue_sync_uniform_grid_widget_instances.instanceNamePrefix must be a non-empty string."
+        )
+
+    trim_managed_children = arguments.get("trimManagedChildren", True)
+    if not isinstance(trim_managed_children, bool):
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.trimManagedChildren must be a boolean.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "sync_uniform_grid_widget_instances",
+        {
+            "assetPath": asset_path,
+            "gridWidgetName": grid_widget_name,
+            "entryWidgetAssetPath": entry_widget_asset_path,
+            "count": count,
+            "columnCount": column_count,
+            "instanceNamePrefix": instance_name_prefix,
+            "trimManagedChildren": trim_managed_children,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=SYNC_UNIFORM_GRID_WIDGET_INSTANCES_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "trimManagedChildren": bool(bridge_result.get("trimManagedChildren", trim_managed_children)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "gridWidgetName": str(bridge_result.get("gridWidgetName", grid_widget_name)),
+        "entryWidgetAssetPath": str(bridge_result.get("entryWidgetAssetPath", entry_widget_asset_path)),
+        "entryWidgetClassPath": str(bridge_result.get("entryWidgetClassPath", "")),
+        "entryWidgetClassName": str(bridge_result.get("entryWidgetClassName", "")),
+        "instanceNamePrefix": str(bridge_result.get("instanceNamePrefix", instance_name_prefix)),
+        "count": int(bridge_result.get("count", count)),
+        "columnCount": int(bridge_result.get("columnCount", column_count)),
+        "createdCount": int(bridge_result.get("createdCount", 0)),
+        "reusedCount": int(bridge_result.get("reusedCount", 0)),
+        "removedCount": int(bridge_result.get("removedCount", 0)),
+        "managedCount": int(bridge_result.get("managedCount", 0)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"grid={structured_content['gridWidgetName']} | "
+        f"managed={structured_content['managedCount']} | "
+        f"created={structured_content['createdCount']} | "
+        f"reused={structured_content['reusedCount']} | "
+        f"removed={structured_content['removedCount']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_sync_uniform_grid_widget_instances_tool_error(
+    message: str,
+    editor_reachable: bool,
+    asset_path: str,
+    grid_widget_name: str,
+    entry_widget_asset_path: str,
+    instance_name_prefix: str,
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "trimManagedChildren": True,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "gridWidgetName": grid_widget_name,
+        "entryWidgetAssetPath": entry_widget_asset_path,
+        "entryWidgetClassPath": "",
+        "entryWidgetClassName": "",
+        "instanceNamePrefix": instance_name_prefix,
+        "count": 0,
+        "columnCount": 0,
+        "createdCount": 0,
+        "reusedCount": 0,
+        "removedCount": 0,
+        "managedCount": 0,
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_add_blueprint_interface_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_add_blueprint_interface.assetPath must be a non-empty string.")
+
+    interface_class_path = arguments.get("interfaceClassPath")
+    if not isinstance(interface_class_path, str) or not interface_class_path.strip():
+        raise JsonRpcError(-32602, "ue_add_blueprint_interface.interfaceClassPath must be a non-empty string.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_add_blueprint_interface.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "add_blueprint_interface",
+        {
+            "assetPath": asset_path,
+            "interfaceClassPath": interface_class_path,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=ADD_BLUEPRINT_INTERFACE_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "added": bool(bridge_result.get("added", False)),
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "interfaceClassPath": str(bridge_result.get("interfaceClassPath", interface_class_path)),
+        "interfaceClassName": str(bridge_result.get("interfaceClassName", "")),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"added={structured_content['added']} | "
+        f"asset={structured_content['assetObjectPath'] or structured_content['assetPath']} | "
+        f"interface={structured_content['interfaceClassPath']} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_add_blueprint_interface_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, interface_class_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "added": False,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "interfaceClassPath": interface_class_path,
+        "interfaceClassName": "",
+        "editorReachable": editor_reachable,
+    }
+
+    return {
+        "content": [{"type": "text", "text": message}],
+        "structuredContent": structured_content,
+        "isError": True,
+    }
+
+
+def build_configure_tile_view_tool_success(arguments: dict[str, Any]) -> dict[str, Any]:
+    asset_path = arguments.get("assetPath")
+    if not isinstance(asset_path, str) or not asset_path.strip():
+        raise JsonRpcError(-32602, "ue_configure_tile_view.assetPath must be a non-empty string.")
+
+    widget_name = arguments.get("widgetName")
+    if not isinstance(widget_name, str) or not widget_name.strip():
+        raise JsonRpcError(-32602, "ue_configure_tile_view.widgetName must be a non-empty string.")
+
+    entry_widget_asset_path = arguments.get("entryWidgetAssetPath")
+    if not isinstance(entry_widget_asset_path, str) or not entry_widget_asset_path.strip():
+        raise JsonRpcError(-32602, "ue_configure_tile_view.entryWidgetAssetPath must be a non-empty string.")
+
+    entry_width = arguments.get("entryWidth")
+    if not isinstance(entry_width, (int, float)):
+        raise JsonRpcError(-32602, "ue_configure_tile_view.entryWidth must be a number.")
+
+    entry_height = arguments.get("entryHeight")
+    if not isinstance(entry_height, (int, float)):
+        raise JsonRpcError(-32602, "ue_configure_tile_view.entryHeight must be a number.")
+
+    orientation = arguments.get("orientation", "Vertical")
+    if not isinstance(orientation, str) or not orientation.strip():
+        raise JsonRpcError(-32602, "ue_configure_tile_view.orientation must be a non-empty string when provided.")
+
+    save_asset = arguments.get("saveAsset", True)
+    if not isinstance(save_asset, bool):
+        raise JsonRpcError(-32602, "ue_configure_tile_view.saveAsset must be a boolean.")
+
+    bridge_result = call_ue_bridge(
+        "configure_tile_view",
+        {
+            "assetPath": asset_path,
+            "widgetName": widget_name,
+            "entryWidgetAssetPath": entry_widget_asset_path,
+            "entryWidth": float(entry_width),
+            "entryHeight": float(entry_height),
+            "orientation": orientation,
+            "saveAsset": save_asset,
+        },
+        timeout_seconds=CONFIGURE_TILE_VIEW_TIMEOUT_SECONDS,
+    )
+
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": bool(bridge_result.get("saved", False)),
+        "success": bool(bridge_result.get("success", False)),
+        "message": str(bridge_result.get("message", "")),
+        "assetPath": str(bridge_result.get("assetPath", "")),
+        "assetObjectPath": str(bridge_result.get("assetObjectPath", "")),
+        "packagePath": str(bridge_result.get("packagePath", "")),
+        "assetName": str(bridge_result.get("assetName", "")),
+        "widgetName": str(bridge_result.get("widgetName", widget_name)),
+        "entryWidgetAssetPath": str(bridge_result.get("entryWidgetAssetPath", entry_widget_asset_path)),
+        "entryWidgetClassPath": str(bridge_result.get("entryWidgetClassPath", "")),
+        "entryWidgetClassName": str(bridge_result.get("entryWidgetClassName", "")),
+        "orientation": str(bridge_result.get("orientation", orientation)),
+        "entryWidth": float(bridge_result.get("entryWidth", entry_width)),
+        "entryHeight": float(bridge_result.get("entryHeight", entry_height)),
+        "editorReachable": True,
+    }
+
+    summary = (
+        f"widget={structured_content['widgetName']} | "
+        f"entry={structured_content['entryWidgetClassPath']} | "
+        f"orientation={structured_content['orientation']} | "
+        f"size={structured_content['entryWidth']:.1f}x{structured_content['entryHeight']:.1f} | "
+        f"{structured_content['message']}"
+    )
+
+    return {
+        "content": [{"type": "text", "text": summary}],
+        "structuredContent": structured_content,
+        "isError": not structured_content["success"],
+    }
+
+
+def build_configure_tile_view_tool_error(
+    message: str, editor_reachable: bool, asset_path: str, widget_name: str, entry_widget_asset_path: str
+) -> dict[str, Any]:
+    structured_content = {
+        "mcpProtocolVersion": MCP_PROTOCOL_VERSION,
+        "saved": False,
+        "success": False,
+        "message": message,
+        "assetPath": asset_path,
+        "assetObjectPath": "",
+        "packagePath": "",
+        "assetName": "",
+        "widgetName": widget_name,
+        "entryWidgetAssetPath": entry_widget_asset_path,
+        "entryWidgetClassPath": "",
+        "entryWidgetClassName": "",
+        "orientation": "",
+        "entryWidth": 0.0,
+        "entryHeight": 0.0,
         "editorReachable": editor_reachable,
     }
 
@@ -2285,10 +3194,19 @@ def build_scaffold_widget_blueprint_tool_success(arguments: dict[str, Any]) -> d
         raise JsonRpcError(-32602, "ue_scaffold_widget_blueprint.assetPath must be a non-empty string.")
 
     scaffold_type = arguments.get("scaffoldType")
-    if not isinstance(scaffold_type, str) or scaffold_type not in {"popup", "bottom_button_bar"}:
+    if not isinstance(scaffold_type, str) or scaffold_type not in {
+        "popup",
+        "bottom_button_bar",
+        "scroll_uniform_grid_host",
+        "tile_view_host",
+        "tile_view_entry",
+    }:
         raise JsonRpcError(
             -32602,
-            "ue_scaffold_widget_blueprint.scaffoldType must be one of: popup, bottom_button_bar.",
+            (
+                "ue_scaffold_widget_blueprint.scaffoldType must be one of: popup, bottom_button_bar, "
+                "scroll_uniform_grid_host, tile_view_host, tile_view_entry."
+            ),
         )
 
     save_asset = arguments.get("saveAsset", True)
@@ -2609,6 +3527,11 @@ def handle_initialize(message_id: Any, params: Any) -> dict[str, Any]:
                 "ue_create_blueprint_asset to generate a non-UMG Blueprint asset from a parent class, "
                 "ue_create_widget_blueprint to generate a Widget Blueprint asset from a parent class, "
                 "ue_import_texture_asset to import a disk image into the project, "
+                "ue_add_widget_blueprint_child_instance to place a Widget Blueprint child instance under a panel widget, "
+                "ue_set_uniform_grid_slot to set row and column on a UniformGrid child, "
+                "ue_sync_uniform_grid_widget_instances to manage repeated UniformGrid child instances, "
+                "ue_add_blueprint_interface to implement an interface on a Blueprint asset, "
+                "ue_configure_tile_view to assign an entry widget class and layout to a TileView, "
                 "ue_reorder_widget_child to reorder a widget inside its current parent in a Widget Blueprint, "
                 "ue_remove_widget to remove a widget from a Widget Blueprint, "
                 "ue_set_widget_background_blur to convert/configure a widget as a BackgroundBlur panel, "
@@ -2636,6 +3559,11 @@ def handle_tools_list(message_id: Any) -> dict[str, Any]:
                 build_create_blueprint_asset_tool_definition(),
                 build_create_widget_blueprint_tool_definition(),
                 build_import_texture_asset_tool_definition(),
+                build_add_widget_blueprint_child_instance_tool_definition(),
+                build_set_uniform_grid_slot_tool_definition(),
+                build_sync_uniform_grid_widget_instances_tool_definition(),
+                build_add_blueprint_interface_tool_definition(),
+                build_configure_tile_view_tool_definition(),
                 build_reorder_widget_child_tool_definition(),
                 build_remove_widget_tool_definition(),
                 build_set_widget_background_blur_tool_definition(),
@@ -2731,6 +3659,139 @@ def handle_tools_call(message_id: Any, params: Any) -> dict[str, Any]:
                 exc.editor_reachable,
                 str(source_file_path or ""),
                 str(asset_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == ADD_WIDGET_BLUEPRINT_CHILD_INSTANCE_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        parent_widget_name = tool_arguments.get("parentWidgetName", "")
+        child_widget_asset_path = tool_arguments.get("childWidgetAssetPath", "")
+        child_widget_name = tool_arguments.get("childWidgetName", "")
+        desired_index = tool_arguments.get("desiredIndex", -1)
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.assetPath must be a string.")
+        if parent_widget_name is not None and not isinstance(parent_widget_name, str):
+            raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.parentWidgetName must be a string.")
+        if child_widget_asset_path is not None and not isinstance(child_widget_asset_path, str):
+            raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.childWidgetAssetPath must be a string.")
+        if child_widget_name is not None and not isinstance(child_widget_name, str):
+            raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.childWidgetName must be a string.")
+        if desired_index is not None and not isinstance(desired_index, int):
+            raise JsonRpcError(-32602, "ue_add_widget_blueprint_child_instance.desiredIndex must be an integer.")
+        try:
+            result = build_add_widget_blueprint_child_instance_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_add_widget_blueprint_child_instance_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(parent_widget_name or ""),
+                str(child_widget_asset_path or ""),
+                str(child_widget_name or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SET_UNIFORM_GRID_SLOT_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        row = tool_arguments.get("row", 0)
+        column = tool_arguments.get("column", 0)
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.widgetName must be a string.")
+        if row is not None and not isinstance(row, int):
+            raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.row must be an integer.")
+        if column is not None and not isinstance(column, int):
+            raise JsonRpcError(-32602, "ue_set_uniform_grid_slot.column must be an integer.")
+        try:
+            result = build_set_uniform_grid_slot_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_set_uniform_grid_slot_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+                int(row if isinstance(row, int) else 0),
+                int(column if isinstance(column, int) else 0),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == SYNC_UNIFORM_GRID_WIDGET_INSTANCES_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        grid_widget_name = tool_arguments.get("gridWidgetName", "")
+        entry_widget_asset_path = tool_arguments.get("entryWidgetAssetPath", "")
+        count = tool_arguments.get("count", 0)
+        column_count = tool_arguments.get("columnCount", 0)
+        instance_name_prefix = tool_arguments.get("instanceNamePrefix", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.assetPath must be a string.")
+        if grid_widget_name is not None and not isinstance(grid_widget_name, str):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.gridWidgetName must be a string.")
+        if entry_widget_asset_path is not None and not isinstance(entry_widget_asset_path, str):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.entryWidgetAssetPath must be a string.")
+        if count is not None and not isinstance(count, int):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.count must be an integer.")
+        if column_count is not None and not isinstance(column_count, int):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.columnCount must be an integer.")
+        if instance_name_prefix is not None and not isinstance(instance_name_prefix, str):
+            raise JsonRpcError(-32602, "ue_sync_uniform_grid_widget_instances.instanceNamePrefix must be a string.")
+        try:
+            result = build_sync_uniform_grid_widget_instances_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_sync_uniform_grid_widget_instances_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(grid_widget_name or ""),
+                str(entry_widget_asset_path or ""),
+                str(instance_name_prefix or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == ADD_BLUEPRINT_INTERFACE_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        interface_class_path = tool_arguments.get("interfaceClassPath", "")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_add_blueprint_interface.assetPath must be a string.")
+        if interface_class_path is not None and not isinstance(interface_class_path, str):
+            raise JsonRpcError(-32602, "ue_add_blueprint_interface.interfaceClassPath must be a string.")
+        try:
+            result = build_add_blueprint_interface_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_add_blueprint_interface_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(interface_class_path or ""),
+            )
+        return make_response(message_id, result)
+
+    if tool_name == CONFIGURE_TILE_VIEW_TOOL_NAME:
+        asset_path = tool_arguments.get("assetPath", "")
+        widget_name = tool_arguments.get("widgetName", "")
+        entry_widget_asset_path = tool_arguments.get("entryWidgetAssetPath", "")
+        entry_width = tool_arguments.get("entryWidth")
+        entry_height = tool_arguments.get("entryHeight")
+        if asset_path is not None and not isinstance(asset_path, str):
+            raise JsonRpcError(-32602, "ue_configure_tile_view.assetPath must be a string.")
+        if widget_name is not None and not isinstance(widget_name, str):
+            raise JsonRpcError(-32602, "ue_configure_tile_view.widgetName must be a string.")
+        if entry_widget_asset_path is not None and not isinstance(entry_widget_asset_path, str):
+            raise JsonRpcError(-32602, "ue_configure_tile_view.entryWidgetAssetPath must be a string.")
+        if entry_width is not None and not isinstance(entry_width, (int, float)):
+            raise JsonRpcError(-32602, "ue_configure_tile_view.entryWidth must be a number.")
+        if entry_height is not None and not isinstance(entry_height, (int, float)):
+            raise JsonRpcError(-32602, "ue_configure_tile_view.entryHeight must be a number.")
+        try:
+            result = build_configure_tile_view_tool_success(tool_arguments)
+        except UeBridgeError as exc:
+            result = build_configure_tile_view_tool_error(
+                str(exc),
+                exc.editor_reachable,
+                str(asset_path or ""),
+                str(widget_name or ""),
+                str(entry_widget_asset_path or ""),
             )
         return make_response(message_id, result)
 

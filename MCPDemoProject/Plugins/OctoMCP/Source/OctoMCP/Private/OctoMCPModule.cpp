@@ -17,10 +17,16 @@
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/Image.h"
 #include "Components/PanelWidget.h"
+#include "Components/ScrollBox.h"
+#include "Components/ScrollBoxSlot.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
+#include "Components/TileView.h"
+#include "Components/UniformGridPanel.h"
+#include "Components/UniformGridSlot.h"
 #include "Components/VerticalBox.h"
 #include "Components/VerticalBoxSlot.h"
+#include "Blueprint/IUserObjectListEntry.h"
 #include "Editor.h"
 #include "Engine/Blueprint.h"
 #include "Engine/Texture2D.h"
@@ -34,6 +40,7 @@
 #include "Modules/ModuleManager.h"
 #include "Subsystems/EditorAssetSubsystem.h"
 #include "UObject/UnrealType.h"
+#include "UObject/TopLevelAssetPath.h"
 #include "WidgetBlueprint.h"
 #include "WidgetBlueprintEditorUtils.h"
 #include "WidgetBlueprintFactory.h"
@@ -55,6 +62,7 @@
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonWriter.h"
+#include "Types/SlateEnums.h"
 
 #if PLATFORM_WINDOWS
 #include "ILiveCodingModule.h"
@@ -74,6 +82,11 @@ namespace OctoMCP
 	const TCHAR* const CommandCreateBlueprintAsset = TEXT("create_blueprint_asset");
 	const TCHAR* const CommandCreateWidgetBlueprint = TEXT("create_widget_blueprint");
 	const TCHAR* const CommandImportTextureAsset = TEXT("import_texture_asset");
+	const TCHAR* const CommandAddWidgetBlueprintChildInstance = TEXT("add_widget_blueprint_child_instance");
+	const TCHAR* const CommandSetUniformGridSlot = TEXT("set_uniform_grid_slot");
+	const TCHAR* const CommandSyncUniformGridWidgetInstances = TEXT("sync_uniform_grid_widget_instances");
+	const TCHAR* const CommandAddBlueprintInterface = TEXT("add_blueprint_interface");
+	const TCHAR* const CommandConfigureTileView = TEXT("configure_tile_view");
 	const TCHAR* const CommandReorderWidgetChild = TEXT("reorder_widget_child");
 	const TCHAR* const CommandRemoveWidget = TEXT("remove_widget");
 	const TCHAR* const CommandScaffoldWidgetBlueprint = TEXT("scaffold_widget_blueprint");
@@ -274,6 +287,95 @@ namespace
 		FString PackagePath;
 		FString AssetName;
 		FString WidgetName;
+	};
+
+	struct FAddWidgetBlueprintChildInstanceResult
+	{
+		bool bCreated = false;
+		bool bReplaced = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		int32 FinalIndex = INDEX_NONE;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString ParentWidgetName;
+		FString ChildWidgetName;
+		FString ChildWidgetAssetPath;
+		FString ChildWidgetClassPath;
+		FString ChildWidgetClassName;
+	};
+
+	struct FSetUniformGridSlotResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		int32 Row = 0;
+		int32 Column = 0;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString ParentWidgetName;
+	};
+
+	struct FSyncUniformGridWidgetInstancesResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		bool bTrimManagedChildren = true;
+		int32 Count = 0;
+		int32 ColumnCount = 1;
+		int32 CreatedCount = 0;
+		int32 ReusedCount = 0;
+		int32 RemovedCount = 0;
+		int32 ManagedCount = 0;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString GridWidgetName;
+		FString EntryWidgetAssetPath;
+		FString EntryWidgetClassPath;
+		FString EntryWidgetClassName;
+		FString InstanceNamePrefix;
+	};
+
+	struct FAddBlueprintInterfaceResult
+	{
+		bool bAdded = false;
+		bool bSaved = false;
+		bool bSuccess = false;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString InterfaceClassPath;
+		FString InterfaceClassName;
+	};
+
+	struct FConfigureTileViewResult
+	{
+		bool bSaved = false;
+		bool bSuccess = false;
+		float EntryWidth = 128.0f;
+		float EntryHeight = 128.0f;
+		FString Message;
+		FString AssetPath;
+		FString AssetObjectPath;
+		FString PackagePath;
+		FString AssetName;
+		FString WidgetName;
+		FString EntryWidgetAssetPath;
+		FString EntryWidgetClassPath;
+		FString EntryWidgetClassName;
+		FString Orientation;
 	};
 
 	struct FReorderWidgetChildResult
@@ -701,6 +803,526 @@ private:
 				ResponseObject->SetObjectField(
 					TEXT("result"),
 					BuildImportTextureAssetObject(SourceFilePath, AssetPath, bReplaceExisting, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandAddWidgetBlueprintChildInstance)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ParentWidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("parentWidgetName"), ParentWidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ChildWidgetAssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("childWidgetAssetPath"), ChildWidgetAssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString ChildWidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("childWidgetName"), ChildWidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 DesiredIndex = INDEX_NONE;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("desiredIndex"), DesiredIndex, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, ParentWidgetName, ChildWidgetAssetPath, ChildWidgetName, DesiredIndex, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildAddWidgetBlueprintChildInstanceObject(
+						AssetPath,
+						ParentWidgetName,
+						ChildWidgetAssetPath,
+						ChildWidgetName,
+						DesiredIndex,
+						bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSetUniformGridSlot)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 Row = 0;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("row"), Row, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 Column = 0;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("column"), Column, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, Row, Column, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSetUniformGridSlotObject(AssetPath, WidgetName, Row, Column, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandSyncUniformGridWidgetInstances)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString GridWidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("gridWidgetName"), GridWidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString EntryWidgetAssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("entryWidgetAssetPath"), EntryWidgetAssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 Count = 0;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("count"), Count, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			int32 ColumnCount = 1;
+			if (!TryGetRequiredIntArgument(ArgumentsObject, TEXT("columnCount"), ColumnCount, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString InstanceNamePrefix;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("instanceNamePrefix"), InstanceNamePrefix, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bTrimManagedChildren = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("trimManagedChildren"), bTrimManagedChildren, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, GridWidgetName, EntryWidgetAssetPath, Count, ColumnCount, InstanceNamePrefix, bTrimManagedChildren, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildSyncUniformGridWidgetInstancesObject(
+						AssetPath,
+						GridWidgetName,
+						EntryWidgetAssetPath,
+						Count,
+						ColumnCount,
+						InstanceNamePrefix,
+						bTrimManagedChildren,
+						bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandAddBlueprintInterface)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString InterfaceClassPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("interfaceClassPath"), InterfaceClassPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(ENamedThreads::GameThread, [this, CompletionCallback, CapturedRequestId, AssetPath, InterfaceClassPath, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildAddBlueprintInterfaceObject(AssetPath, InterfaceClassPath, bSaveAsset));
+
+				CompletionCallback(CreateJsonResponse(ResponseObject));
+			});
+			return true;
+		}
+
+		if (Command == OctoMCP::CommandConfigureTileView)
+		{
+			TSharedPtr<FJsonObject> ArgumentsObject;
+			if (!TryGetArgumentsObject(RequestObject.ToSharedRef(), ArgumentsObject, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString AssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("assetPath"), AssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString WidgetName;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("widgetName"), WidgetName, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString EntryWidgetAssetPath;
+			if (!TryGetRequiredStringArgument(ArgumentsObject, TEXT("entryWidgetAssetPath"), EntryWidgetAssetPath, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float EntryWidth = 128.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("entryWidth"), EntryWidth, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			float EntryHeight = 128.0f;
+			if (!TryGetRequiredFloatArgument(ArgumentsObject, TEXT("entryHeight"), EntryHeight, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			FString Orientation = TEXT("Vertical");
+			if (ArgumentsObject.IsValid() && ArgumentsObject->HasField(TEXT("orientation")))
+			{
+				if (!ArgumentsObject->TryGetStringField(TEXT("orientation"), Orientation))
+				{
+					OnComplete(CreateErrorResponse(
+						EHttpServerResponseCodes::BadRequest,
+						TEXT("invalid_arguments"),
+						TEXT("orientation must be a string when provided."),
+						RequestId));
+					return true;
+				}
+
+				Orientation = Orientation.TrimStartAndEnd();
+				if (Orientation.IsEmpty())
+				{
+					OnComplete(CreateErrorResponse(
+						EHttpServerResponseCodes::BadRequest,
+						TEXT("invalid_arguments"),
+						TEXT("orientation must not be empty when provided."),
+						RequestId));
+					return true;
+				}
+			}
+
+			bool bSaveAsset = true;
+			if (!TryGetOptionalBoolArgument(ArgumentsObject, TEXT("saveAsset"), bSaveAsset, BodyError))
+			{
+				OnComplete(CreateErrorResponse(
+					EHttpServerResponseCodes::BadRequest,
+					TEXT("invalid_arguments"),
+					BodyError,
+					RequestId));
+				return true;
+			}
+
+			const FHttpResultCallback CompletionCallback = OnComplete;
+			const FString CapturedRequestId = RequestId;
+			AsyncTask(
+				ENamedThreads::GameThread,
+				[this, CompletionCallback, CapturedRequestId, AssetPath, WidgetName, EntryWidgetAssetPath, EntryWidth, EntryHeight, Orientation, bSaveAsset]()
+			{
+				TSharedRef<FJsonObject> ResponseObject = MakeShared<FJsonObject>();
+				ResponseObject->SetBoolField(TEXT("ok"), true);
+				if (!CapturedRequestId.IsEmpty())
+				{
+					ResponseObject->SetStringField(TEXT("requestId"), CapturedRequestId);
+				}
+				ResponseObject->SetObjectField(
+					TEXT("result"),
+					BuildConfigureTileViewObject(
+						AssetPath,
+						WidgetName,
+						EntryWidgetAssetPath,
+						EntryWidth,
+						EntryHeight,
+						Orientation,
+						bSaveAsset));
 
 				CompletionCallback(CreateJsonResponse(ResponseObject));
 			});
@@ -2216,6 +2838,111 @@ private:
 		return TextureAsset;
 	}
 
+	UClass* ResolveWidgetBlueprintGeneratedClass(
+		const FString& InWidgetAssetPath,
+		FString& OutResolvedAssetPath,
+		FString& OutResolvedClassPath,
+		FString& OutError) const
+	{
+		FString AssetPackageName;
+		FString PackagePath;
+		FString AssetName;
+		FString AssetObjectPath;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InWidgetAssetPath,
+				AssetPackageName,
+				PackagePath,
+				AssetName,
+				AssetObjectPath,
+				OutError))
+		{
+			return nullptr;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr)
+		{
+			OutError = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return nullptr;
+		}
+
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+		if (WidgetBlueprint->GeneratedClass == nullptr)
+		{
+			OutError = FString::Printf(
+				TEXT("Widget Blueprint asset does not have a generated class after compile: %s"),
+				*AssetObjectPath);
+			return nullptr;
+		}
+
+		if (!WidgetBlueprint->GeneratedClass->IsChildOf(UUserWidget::StaticClass()))
+		{
+			OutError = FString::Printf(
+				TEXT("Widget Blueprint generated class %s does not derive from UUserWidget."),
+				*WidgetBlueprint->GeneratedClass->GetPathName());
+			return nullptr;
+		}
+
+		OutResolvedAssetPath = AssetPackageName;
+		OutResolvedClassPath = WidgetBlueprint->GeneratedClass->GetPathName();
+		return WidgetBlueprint->GeneratedClass;
+	}
+
+	UWidget* EnsureWidgetInstanceOfClass(
+		UWidgetBlueprint* WidgetBlueprint,
+		UClass* WidgetClass,
+		const TCHAR* WidgetName,
+		bool& bOutCreated,
+		bool& bOutReplaced,
+		FString& OutError) const
+	{
+		bOutCreated = false;
+		bOutReplaced = false;
+
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+		check(WidgetClass != nullptr);
+
+		const FName TargetName(WidgetName);
+		UWidget* ExistingWidget = WidgetBlueprint->WidgetTree->FindWidget(TargetName);
+		if (ExistingWidget != nullptr)
+		{
+			if (ExistingWidget->IsA(WidgetClass))
+			{
+				return ExistingWidget;
+			}
+
+			if (ExistingWidget->bIsVariable && FBlueprintEditorUtils::IsVariableUsed(WidgetBlueprint, ExistingWidget->GetFName()))
+			{
+				OutError = FString::Printf(
+					TEXT("Widget %s is referenced in the graph and cannot be replaced automatically."),
+					WidgetName);
+				return nullptr;
+			}
+
+			TSet<UWidget*> WidgetsToDelete;
+			WidgetsToDelete.Add(ExistingWidget);
+			FWidgetBlueprintEditorUtils::DeleteWidgets(
+				WidgetBlueprint,
+				WidgetsToDelete,
+				FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
+
+			if (WidgetBlueprint->WidgetTree->FindWidget(TargetName) != nullptr)
+			{
+				OutError = FString::Printf(
+					TEXT("Failed to replace widget %s with a new instance of class %s."),
+					WidgetName,
+					*WidgetClass->GetPathName());
+				return nullptr;
+			}
+
+			bOutReplaced = true;
+		}
+
+		bOutCreated = true;
+		return WidgetBlueprint->WidgetTree->ConstructWidget<UWidget>(WidgetClass, TargetName);
+	}
+
 	bool SetBoolPropertyValue(
 		UClass* const OwnerClass,
 		UObject* const ObjectInstance,
@@ -2264,6 +2991,40 @@ private:
 		return true;
 	}
 
+	bool SetClassPropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		UClass* const Value,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		FClassProperty* const Property = CastField<FClassProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName)));
+		if (Property == nullptr)
+		{
+			OutError = FString::Printf(
+				TEXT("Class property %s was not found on %s."),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		if (Value != nullptr && Property->MetaClass != nullptr && !Value->IsChildOf(Property->MetaClass))
+		{
+			OutError = FString::Printf(
+				TEXT("Class %s is not compatible with property %s on %s."),
+				*Value->GetPathName(),
+				PropertyName,
+				*OwnerClass->GetPathName());
+			return false;
+		}
+
+		Property->SetObjectPropertyValue_InContainer(ObjectInstance, Value);
+		return true;
+	}
+
 	bool SetNamePropertyValue(
 		UClass* const OwnerClass,
 		UObject* const ObjectInstance,
@@ -2286,6 +3047,38 @@ private:
 
 		Property->SetPropertyValue_InContainer(ObjectInstance, Value);
 		return true;
+	}
+
+	bool SetEnumPropertyValue(
+		UClass* const OwnerClass,
+		UObject* const ObjectInstance,
+		const TCHAR* PropertyName,
+		const int64 Value,
+		FString& OutError) const
+	{
+		check(OwnerClass != nullptr);
+		check(ObjectInstance != nullptr);
+
+		if (FEnumProperty* const EnumProperty = CastField<FEnumProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName))))
+		{
+			if (FNumericProperty* const UnderlyingProperty = EnumProperty->GetUnderlyingProperty())
+			{
+				UnderlyingProperty->SetIntPropertyValue(UnderlyingProperty->ContainerPtrToValuePtr<void>(ObjectInstance), Value);
+				return true;
+			}
+		}
+
+		if (FByteProperty* const ByteProperty = CastField<FByteProperty>(OwnerClass->FindPropertyByName(*FString(PropertyName))))
+		{
+			ByteProperty->SetPropertyValue_InContainer(ObjectInstance, static_cast<uint8>(Value));
+			return true;
+		}
+
+		OutError = FString::Printf(
+			TEXT("Enum property %s was not found on %s."),
+			PropertyName,
+			*OwnerClass->GetPathName());
+		return false;
 	}
 
 	bool SetVector2DPropertyValue(
@@ -2318,6 +3111,41 @@ private:
 			TEXT("Could not access FVector2D property %s on %s."),
 			PropertyName,
 			*OwnerClass->GetPathName());
+		return false;
+	}
+
+	bool ParseOrientationValue(
+		const FString& InOrientation,
+		EOrientation& OutOrientation,
+		FString& OutNormalizedOrientation,
+		FString& OutError) const
+	{
+		const FString TrimmedOrientation = InOrientation.TrimStartAndEnd();
+		if (TrimmedOrientation.IsEmpty())
+		{
+			OutError = TEXT("orientation must not be empty.");
+			return false;
+		}
+
+		if (TrimmedOrientation.Equals(TEXT("Vertical"), ESearchCase::IgnoreCase) ||
+			TrimmedOrientation.Equals(TEXT("Orient_Vertical"), ESearchCase::IgnoreCase))
+		{
+			OutOrientation = Orient_Vertical;
+			OutNormalizedOrientation = TEXT("Vertical");
+			return true;
+		}
+
+		if (TrimmedOrientation.Equals(TEXT("Horizontal"), ESearchCase::IgnoreCase) ||
+			TrimmedOrientation.Equals(TEXT("Orient_Horizontal"), ESearchCase::IgnoreCase))
+		{
+			OutOrientation = Orient_Horizontal;
+			OutNormalizedOrientation = TEXT("Horizontal");
+			return true;
+		}
+
+		OutError = FString::Printf(
+			TEXT("Unsupported orientation value %s. Expected Vertical or Horizontal."),
+			*TrimmedOrientation);
 		return false;
 	}
 
@@ -3403,6 +4231,861 @@ private:
 		return Result;
 	}
 
+	TSharedRef<FJsonObject> BuildAddWidgetBlueprintChildInstanceObject(
+		const FString& AssetPath,
+		const FString& ParentWidgetName,
+		const FString& ChildWidgetAssetPath,
+		const FString& ChildWidgetName,
+		const int32 DesiredIndex,
+		const bool bSaveAsset) const
+	{
+		const FAddWidgetBlueprintChildInstanceResult AddResult =
+			AddWidgetBlueprintChildInstance(AssetPath, ParentWidgetName, ChildWidgetAssetPath, ChildWidgetName, DesiredIndex, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("created"), AddResult.bCreated);
+		ResultObject->SetBoolField(TEXT("replaced"), AddResult.bReplaced);
+		ResultObject->SetBoolField(TEXT("saved"), AddResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), AddResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), AddResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), AddResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), AddResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), AddResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), AddResult.AssetName);
+		ResultObject->SetStringField(TEXT("parentWidgetName"), AddResult.ParentWidgetName);
+		ResultObject->SetStringField(TEXT("childWidgetName"), AddResult.ChildWidgetName);
+		ResultObject->SetStringField(TEXT("childWidgetAssetPath"), AddResult.ChildWidgetAssetPath);
+		ResultObject->SetStringField(TEXT("childWidgetClassPath"), AddResult.ChildWidgetClassPath);
+		ResultObject->SetStringField(TEXT("childWidgetClassName"), AddResult.ChildWidgetClassName);
+		ResultObject->SetNumberField(TEXT("finalIndex"), AddResult.FinalIndex);
+		return ResultObject;
+	}
+
+	FAddWidgetBlueprintChildInstanceResult AddWidgetBlueprintChildInstance(
+		const FString& InAssetPath,
+		const FString& InParentWidgetName,
+		const FString& InChildWidgetAssetPath,
+		const FString& InChildWidgetName,
+		const int32 DesiredIndex,
+		const bool bSaveAsset) const
+	{
+		FAddWidgetBlueprintChildInstanceResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.ParentWidgetName = InParentWidgetName.TrimStartAndEnd();
+		Result.ChildWidgetName = InChildWidgetName.TrimStartAndEnd();
+
+		if (Result.ParentWidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("parentWidgetName must not be empty.");
+			return Result;
+		}
+
+		if (Result.ChildWidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("childWidgetName must not be empty.");
+			return Result;
+		}
+
+		if (DesiredIndex < 0)
+		{
+			Result.Message = TEXT("desiredIndex must be zero or greater.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UPanelWidget* const ParentWidget =
+			Cast<UPanelWidget>(WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.ParentWidgetName)));
+		if (ParentWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find panel widget named %s in %s."),
+				*Result.ParentWidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		UClass* const ChildWidgetClass = ResolveWidgetBlueprintGeneratedClass(
+			InChildWidgetAssetPath,
+			Result.ChildWidgetAssetPath,
+			Result.ChildWidgetClassPath,
+			ErrorMessage);
+		if (ChildWidgetClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+		Result.ChildWidgetClassName = ChildWidgetClass->GetName();
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		ParentWidget->SetFlags(RF_Transactional);
+		ParentWidget->Modify();
+
+		UWidget* const ChildWidget = EnsureWidgetInstanceOfClass(
+			WidgetBlueprint,
+			ChildWidgetClass,
+			*Result.ChildWidgetName,
+			Result.bCreated,
+			Result.bReplaced,
+			ErrorMessage);
+		if (ChildWidget == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		ChildWidget->SetFlags(RF_Transactional);
+		ChildWidget->Modify();
+
+		if (EnsurePanelChildAt(ParentWidget, ChildWidget, DesiredIndex) == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to insert child widget %s under parent %s."),
+				*Result.ChildWidgetName,
+				*Result.ParentWidgetName);
+			return Result;
+		}
+
+		Result.FinalIndex = ParentWidget->GetChildIndex(ChildWidget);
+		if (Result.FinalIndex == INDEX_NONE)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to resolve final child index for widget %s under parent %s."),
+				*Result.ChildWidgetName,
+				*Result.ParentWidgetName);
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Added widget child instance but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Added widget child instance but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Placed child widget %s under %s at index %d using class %s."),
+			*Result.ChildWidgetName,
+			*Result.ParentWidgetName,
+			Result.FinalIndex,
+			*Result.ChildWidgetClassPath);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSetUniformGridSlotObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const int32 Row,
+		const int32 Column,
+		const bool bSaveAsset) const
+	{
+		const FSetUniformGridSlotResult SetResult =
+			SetUniformGridSlot(AssetPath, WidgetName, Row, Column, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SetResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SetResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), SetResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SetResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SetResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SetResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SetResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), SetResult.WidgetName);
+		ResultObject->SetStringField(TEXT("parentWidgetName"), SetResult.ParentWidgetName);
+		ResultObject->SetNumberField(TEXT("row"), SetResult.Row);
+		ResultObject->SetNumberField(TEXT("column"), SetResult.Column);
+		return ResultObject;
+	}
+
+	FSetUniformGridSlotResult SetUniformGridSlot(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const int32 InRow,
+		const int32 InColumn,
+		const bool bSaveAsset) const
+	{
+		FSetUniformGridSlotResult Result;
+		Result.Row = FMath::Max(InRow, 0);
+		Result.Column = FMath::Max(InColumn, 0);
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UWidget* const TargetWidget = WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName));
+		if (TargetWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		UUniformGridSlot* const GridSlot = Cast<UUniformGridSlot>(TargetWidget->Slot);
+		if (GridSlot == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Widget %s is not currently slotted in a UniformGridPanel."),
+				*Result.WidgetName);
+			return Result;
+		}
+
+		if (UUniformGridPanel* const ParentWidget = Cast<UUniformGridPanel>(GridSlot->Parent))
+		{
+			Result.ParentWidgetName = ParentWidget->GetName();
+		}
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		GridSlot->SetFlags(RF_Transactional);
+		GridSlot->Modify();
+		GridSlot->SetRow(Result.Row);
+		GridSlot->SetColumn(Result.Column);
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated UniformGrid slot but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Updated UniformGrid slot but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Set UniformGrid slot for widget %s to row=%d column=%d."),
+			*Result.WidgetName,
+			Result.Row,
+			Result.Column);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildSyncUniformGridWidgetInstancesObject(
+		const FString& AssetPath,
+		const FString& GridWidgetName,
+		const FString& EntryWidgetAssetPath,
+		const int32 Count,
+		const int32 ColumnCount,
+		const FString& InstanceNamePrefix,
+		const bool bTrimManagedChildren,
+		const bool bSaveAsset) const
+	{
+		const FSyncUniformGridWidgetInstancesResult SyncResult = SyncUniformGridWidgetInstances(
+			AssetPath,
+			GridWidgetName,
+			EntryWidgetAssetPath,
+			Count,
+			ColumnCount,
+			InstanceNamePrefix,
+			bTrimManagedChildren,
+			bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), SyncResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), SyncResult.bSuccess);
+		ResultObject->SetBoolField(TEXT("trimManagedChildren"), SyncResult.bTrimManagedChildren);
+		ResultObject->SetStringField(TEXT("message"), SyncResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), SyncResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), SyncResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), SyncResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), SyncResult.AssetName);
+		ResultObject->SetStringField(TEXT("gridWidgetName"), SyncResult.GridWidgetName);
+		ResultObject->SetStringField(TEXT("entryWidgetAssetPath"), SyncResult.EntryWidgetAssetPath);
+		ResultObject->SetStringField(TEXT("entryWidgetClassPath"), SyncResult.EntryWidgetClassPath);
+		ResultObject->SetStringField(TEXT("entryWidgetClassName"), SyncResult.EntryWidgetClassName);
+		ResultObject->SetStringField(TEXT("instanceNamePrefix"), SyncResult.InstanceNamePrefix);
+		ResultObject->SetNumberField(TEXT("count"), SyncResult.Count);
+		ResultObject->SetNumberField(TEXT("columnCount"), SyncResult.ColumnCount);
+		ResultObject->SetNumberField(TEXT("createdCount"), SyncResult.CreatedCount);
+		ResultObject->SetNumberField(TEXT("reusedCount"), SyncResult.ReusedCount);
+		ResultObject->SetNumberField(TEXT("removedCount"), SyncResult.RemovedCount);
+		ResultObject->SetNumberField(TEXT("managedCount"), SyncResult.ManagedCount);
+		return ResultObject;
+	}
+
+	FSyncUniformGridWidgetInstancesResult SyncUniformGridWidgetInstances(
+		const FString& InAssetPath,
+		const FString& InGridWidgetName,
+		const FString& InEntryWidgetAssetPath,
+		const int32 InCount,
+		const int32 InColumnCount,
+		const FString& InInstanceNamePrefix,
+		const bool bTrimManagedChildren,
+		const bool bSaveAsset) const
+	{
+		FSyncUniformGridWidgetInstancesResult Result;
+		Result.Count = FMath::Max(InCount, 0);
+		Result.ColumnCount = FMath::Max(InColumnCount, 1);
+		Result.bTrimManagedChildren = bTrimManagedChildren;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.GridWidgetName = InGridWidgetName.TrimStartAndEnd();
+		Result.InstanceNamePrefix = InInstanceNamePrefix.TrimStartAndEnd();
+		if (Result.GridWidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("gridWidgetName must not be empty.");
+			return Result;
+		}
+
+		if (Result.InstanceNamePrefix.IsEmpty())
+		{
+			Result.Message = TEXT("instanceNamePrefix must not be empty.");
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UUniformGridPanel* const GridWidget =
+			Cast<UUniformGridPanel>(WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.GridWidgetName)));
+		if (GridWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find UUniformGridPanel named %s in %s."),
+				*Result.GridWidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		UClass* const EntryWidgetClass = ResolveWidgetBlueprintGeneratedClass(
+			InEntryWidgetAssetPath,
+			Result.EntryWidgetAssetPath,
+			Result.EntryWidgetClassPath,
+			ErrorMessage);
+		if (EntryWidgetClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+		Result.EntryWidgetClassName = EntryWidgetClass->GetName();
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		GridWidget->SetFlags(RF_Transactional);
+		GridWidget->Modify();
+
+		TSet<FString> DesiredChildNames;
+		for (int32 Index = 0; Index < Result.Count; ++Index)
+		{
+			const FString DesiredWidgetName = FString::Printf(TEXT("%s%d"), *Result.InstanceNamePrefix, Index);
+			DesiredChildNames.Add(DesiredWidgetName);
+
+			bool bCreatedChild = false;
+			bool bReplacedChild = false;
+			UWidget* const ChildWidget = EnsureWidgetInstanceOfClass(
+				WidgetBlueprint,
+				EntryWidgetClass,
+				*DesiredWidgetName,
+				bCreatedChild,
+				bReplacedChild,
+				ErrorMessage);
+			if (ChildWidget == nullptr)
+			{
+				Result.Message = ErrorMessage;
+				return Result;
+			}
+
+			ChildWidget->SetFlags(RF_Transactional);
+			ChildWidget->Modify();
+
+			UUniformGridSlot* const GridSlot = Cast<UUniformGridSlot>(EnsurePanelChildAt(GridWidget, ChildWidget, Index));
+			if (GridSlot == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Failed to insert widget %s into UniformGridPanel %s."),
+					*DesiredWidgetName,
+					*Result.GridWidgetName);
+				return Result;
+			}
+
+			GridSlot->SetRow(Index / Result.ColumnCount);
+			GridSlot->SetColumn(Index % Result.ColumnCount);
+
+			if (bCreatedChild || bReplacedChild)
+			{
+				++Result.CreatedCount;
+			}
+			else
+			{
+				++Result.ReusedCount;
+			}
+		}
+
+		if (bTrimManagedChildren)
+		{
+			TSet<UWidget*> WidgetsToDelete;
+			for (int32 ChildIndex = 0; ChildIndex < GridWidget->GetChildrenCount(); ++ChildIndex)
+			{
+				UWidget* const ChildWidget = GridWidget->GetChildAt(ChildIndex);
+				if (ChildWidget == nullptr)
+				{
+					continue;
+				}
+
+				const FString ChildWidgetName = ChildWidget->GetName();
+				if (ChildWidgetName.StartsWith(Result.InstanceNamePrefix) && !DesiredChildNames.Contains(ChildWidgetName))
+				{
+					WidgetsToDelete.Add(ChildWidget);
+				}
+			}
+
+			if (WidgetsToDelete.Num() > 0)
+			{
+				Result.RemovedCount = WidgetsToDelete.Num();
+				FWidgetBlueprintEditorUtils::DeleteWidgets(
+					WidgetBlueprint,
+					WidgetsToDelete,
+					FWidgetBlueprintEditorUtils::EDeleteWidgetWarningType::DeleteSilently);
+			}
+		}
+
+		for (int32 ChildIndex = 0; ChildIndex < GridWidget->GetChildrenCount(); ++ChildIndex)
+		{
+			if (UWidget* const ChildWidget = GridWidget->GetChildAt(ChildIndex))
+			{
+				if (ChildWidget->GetName().StartsWith(Result.InstanceNamePrefix))
+				{
+					++Result.ManagedCount;
+				}
+			}
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Synchronized UniformGrid widget instances but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Synchronized UniformGrid widget instances but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Synchronized %d managed widget instances under UniformGridPanel %s using prefix %s."),
+			Result.ManagedCount,
+			*Result.GridWidgetName,
+			*Result.InstanceNamePrefix);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildAddBlueprintInterfaceObject(
+		const FString& AssetPath,
+		const FString& InterfaceClassPath,
+		const bool bSaveAsset) const
+	{
+		const FAddBlueprintInterfaceResult AddResult =
+			AddBlueprintInterface(AssetPath, InterfaceClassPath, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("added"), AddResult.bAdded);
+		ResultObject->SetBoolField(TEXT("saved"), AddResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), AddResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), AddResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), AddResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), AddResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), AddResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), AddResult.AssetName);
+		ResultObject->SetStringField(TEXT("interfaceClassPath"), AddResult.InterfaceClassPath);
+		ResultObject->SetStringField(TEXT("interfaceClassName"), AddResult.InterfaceClassName);
+		return ResultObject;
+	}
+
+	FAddBlueprintInterfaceResult AddBlueprintInterface(
+		const FString& InAssetPath,
+		const FString& InInterfaceClassPath,
+		const bool bSaveAsset) const
+	{
+		FAddBlueprintInterfaceResult Result;
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+
+		UBlueprint* const BlueprintAsset = LoadObject<UBlueprint>(nullptr, *AssetObjectPath);
+		if (BlueprintAsset == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UClass* const InterfaceClass =
+			ResolveClassReference(InInterfaceClassPath, UInterface::StaticClass(), Result.InterfaceClassPath, ErrorMessage);
+		if (InterfaceClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+		Result.InterfaceClassName = InterfaceClass->GetName();
+
+		for (const FBPInterfaceDescription& ImplementedInterface : BlueprintAsset->ImplementedInterfaces)
+		{
+			if (ImplementedInterface.Interface == InterfaceClass)
+			{
+				Result.bSuccess = true;
+				Result.Message = FString::Printf(
+					TEXT("Blueprint %s already implements interface %s."),
+					*AssetObjectPath,
+					*Result.InterfaceClassPath);
+				return Result;
+			}
+		}
+
+		BlueprintAsset->Modify();
+		if (!FBlueprintEditorUtils::ImplementNewInterface(BlueprintAsset, InterfaceClass->GetClassPathName()))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Failed to implement interface %s on %s."),
+				*Result.InterfaceClassPath,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		Result.bAdded = true;
+		BlueprintAsset->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BlueprintAsset);
+		FKismetEditorUtilities::CompileBlueprint(BlueprintAsset);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Added Blueprint interface but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(BlueprintAsset, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Added Blueprint interface but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Implemented interface %s on Blueprint %s."),
+			*Result.InterfaceClassPath,
+			*AssetObjectPath);
+		return Result;
+	}
+
+	TSharedRef<FJsonObject> BuildConfigureTileViewObject(
+		const FString& AssetPath,
+		const FString& WidgetName,
+		const FString& EntryWidgetAssetPath,
+		const float EntryWidth,
+		const float EntryHeight,
+		const FString& Orientation,
+		const bool bSaveAsset) const
+	{
+		const FConfigureTileViewResult ConfigureResult =
+			ConfigureTileView(AssetPath, WidgetName, EntryWidgetAssetPath, EntryWidth, EntryHeight, Orientation, bSaveAsset);
+
+		TSharedRef<FJsonObject> ResultObject = MakeShared<FJsonObject>();
+		ResultObject->SetBoolField(TEXT("saved"), ConfigureResult.bSaved);
+		ResultObject->SetBoolField(TEXT("success"), ConfigureResult.bSuccess);
+		ResultObject->SetStringField(TEXT("message"), ConfigureResult.Message);
+		ResultObject->SetStringField(TEXT("assetPath"), ConfigureResult.AssetPath);
+		ResultObject->SetStringField(TEXT("assetObjectPath"), ConfigureResult.AssetObjectPath);
+		ResultObject->SetStringField(TEXT("packagePath"), ConfigureResult.PackagePath);
+		ResultObject->SetStringField(TEXT("assetName"), ConfigureResult.AssetName);
+		ResultObject->SetStringField(TEXT("widgetName"), ConfigureResult.WidgetName);
+		ResultObject->SetStringField(TEXT("entryWidgetAssetPath"), ConfigureResult.EntryWidgetAssetPath);
+		ResultObject->SetStringField(TEXT("entryWidgetClassPath"), ConfigureResult.EntryWidgetClassPath);
+		ResultObject->SetStringField(TEXT("entryWidgetClassName"), ConfigureResult.EntryWidgetClassName);
+		ResultObject->SetStringField(TEXT("orientation"), ConfigureResult.Orientation);
+		ResultObject->SetNumberField(TEXT("entryWidth"), ConfigureResult.EntryWidth);
+		ResultObject->SetNumberField(TEXT("entryHeight"), ConfigureResult.EntryHeight);
+		return ResultObject;
+	}
+
+	FConfigureTileViewResult ConfigureTileView(
+		const FString& InAssetPath,
+		const FString& InWidgetName,
+		const FString& InEntryWidgetAssetPath,
+		const float InEntryWidth,
+		const float InEntryHeight,
+		const FString& InOrientation,
+		const bool bSaveAsset) const
+	{
+		FConfigureTileViewResult Result;
+		Result.EntryWidth = FMath::Max(InEntryWidth, 1.0f);
+		Result.EntryHeight = FMath::Max(InEntryHeight, 1.0f);
+
+		FString AssetPackageName;
+		FString AssetObjectPath;
+		FString ErrorMessage;
+		if (!NormalizeWidgetBlueprintAssetPath(
+				InAssetPath,
+				AssetPackageName,
+				Result.PackagePath,
+				Result.AssetName,
+				AssetObjectPath,
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		Result.AssetPath = AssetPackageName;
+		Result.AssetObjectPath = AssetObjectPath;
+		Result.WidgetName = InWidgetName.TrimStartAndEnd();
+		if (Result.WidgetName.IsEmpty())
+		{
+			Result.Message = TEXT("widgetName must not be empty.");
+			return Result;
+		}
+
+		EOrientation OrientationValue = Orient_Vertical;
+		if (!ParseOrientationValue(InOrientation, OrientationValue, Result.Orientation, ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		UWidgetBlueprint* const WidgetBlueprint = LoadObject<UWidgetBlueprint>(nullptr, *AssetObjectPath);
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			Result.Message = FString::Printf(TEXT("Could not load Widget Blueprint asset: %s"), *AssetObjectPath);
+			return Result;
+		}
+
+		UTileView* const TileViewWidget = Cast<UTileView>(WidgetBlueprint->WidgetTree->FindWidget(FName(*Result.WidgetName)));
+		if (TileViewWidget == nullptr)
+		{
+			Result.Message = FString::Printf(
+				TEXT("Could not find UTileView widget named %s in %s."),
+				*Result.WidgetName,
+				*AssetObjectPath);
+			return Result;
+		}
+
+		UClass* const EntryWidgetClass = ResolveWidgetBlueprintGeneratedClass(
+			InEntryWidgetAssetPath,
+			Result.EntryWidgetAssetPath,
+			Result.EntryWidgetClassPath,
+			ErrorMessage);
+		if (EntryWidgetClass == nullptr)
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+		Result.EntryWidgetClassName = EntryWidgetClass->GetName();
+
+		if (!EntryWidgetClass->ImplementsInterface(UUserObjectListEntry::StaticClass()))
+		{
+			Result.Message = FString::Printf(
+				TEXT("Entry widget class %s must implement /Script/UMG.UserObjectListEntry."),
+				*Result.EntryWidgetClassPath);
+			return Result;
+		}
+
+		WidgetBlueprint->Modify();
+		WidgetBlueprint->WidgetTree->Modify();
+		TileViewWidget->SetFlags(RF_Transactional);
+		TileViewWidget->Modify();
+
+		TileViewWidget->SetEntryWidth(Result.EntryWidth);
+		TileViewWidget->SetEntryHeight(Result.EntryHeight);
+		if (!SetClassPropertyValue(
+				TileViewWidget->GetClass(),
+				TileViewWidget,
+				TEXT("EntryWidgetClass"),
+				EntryWidgetClass,
+				ErrorMessage) ||
+			!SetEnumPropertyValue(
+				TileViewWidget->GetClass(),
+				TileViewWidget,
+				TEXT("Orientation"),
+				static_cast<int64>(OrientationValue),
+				ErrorMessage))
+		{
+			Result.Message = ErrorMessage;
+			return Result;
+		}
+
+		WidgetBlueprint->MarkPackageDirty();
+		FBlueprintEditorUtils::MarkBlueprintAsModified(WidgetBlueprint);
+		FKismetEditorUtilities::CompileBlueprint(WidgetBlueprint);
+
+		if (bSaveAsset)
+		{
+			UEditorAssetSubsystem* const EditorAssetSubsystem =
+				GEditor != nullptr ? GEditor->GetEditorSubsystem<UEditorAssetSubsystem>() : nullptr;
+			if (EditorAssetSubsystem == nullptr)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Configured TileView but could not access the EditorAssetSubsystem to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+
+			Result.bSaved = EditorAssetSubsystem->SaveLoadedAsset(WidgetBlueprint, false);
+			if (!Result.bSaved)
+			{
+				Result.Message = FString::Printf(
+					TEXT("Configured TileView but failed to save it: %s"),
+					*AssetObjectPath);
+				return Result;
+			}
+		}
+
+		Result.bSuccess = true;
+		Result.Message = FString::Printf(
+			TEXT("Configured TileView %s with entry class %s (%s %.2fx%.2f)."),
+			*Result.WidgetName,
+			*Result.EntryWidgetClassPath,
+			*Result.Orientation,
+			Result.EntryWidth,
+			Result.EntryHeight);
+		return Result;
+	}
+
 	TSharedRef<FJsonObject> BuildReorderWidgetChildObject(
 		const FString& AssetPath,
 		const FString& WidgetName,
@@ -3960,6 +5643,18 @@ private:
 		else if (Result.ScaffoldType == TEXT("bottom_button_bar"))
 		{
 			bBuiltScaffold = BuildBottomButtonBarWidgetScaffold(WidgetBlueprint);
+		}
+		else if (Result.ScaffoldType == TEXT("scroll_uniform_grid_host"))
+		{
+			bBuiltScaffold = BuildScrollUniformGridHostWidgetScaffold(WidgetBlueprint);
+		}
+		else if (Result.ScaffoldType == TEXT("tile_view_host"))
+		{
+			bBuiltScaffold = BuildTileViewHostWidgetScaffold(WidgetBlueprint);
+		}
+		else if (Result.ScaffoldType == TEXT("tile_view_entry"))
+		{
+			bBuiltScaffold = BuildTileViewEntryWidgetScaffold(WidgetBlueprint);
 		}
 		else
 		{
@@ -4626,6 +6321,146 @@ private:
 				TestPopupOpenButtonContentSlot->SetHorizontalAlignment(HAlign_Center);
 				TestPopupOpenButtonContentSlot->SetVerticalAlignment(VAlign_Center);
 			}
+		}
+
+		return true;
+	}
+
+	bool BuildScrollUniformGridHostWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		bool bCreatedRootCanvas = false;
+		UCanvasPanel* const RootCanvas = EnsureRootWidget<UCanvasPanel>(WidgetBlueprint, TEXT("RootCanvas"), bCreatedRootCanvas);
+		if (RootCanvas == nullptr)
+		{
+			return false;
+		}
+
+		bool bCreatedScrollBox = false;
+		UScrollBox* const GridScrollBox =
+			FindOrCreateWidget<UScrollBox>(WidgetBlueprint, TEXT("GridScrollBox"), bCreatedScrollBox);
+		if (GridScrollBox == nullptr)
+		{
+			return false;
+		}
+
+		if (UCanvasPanelSlot* const ScrollBoxSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, GridScrollBox, 0)))
+		{
+			if (bCreatedScrollBox)
+			{
+				ScrollBoxSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+				ScrollBoxSlot->SetOffsets(FMargin(0.0f, 0.0f, 0.0f, 0.0f));
+				ScrollBoxSlot->SetZOrder(0);
+			}
+		}
+
+		bool bCreatedGridPanel = false;
+		UUniformGridPanel* const GridPanel =
+			FindOrCreateWidget<UUniformGridPanel>(WidgetBlueprint, TEXT("GridPanel"), bCreatedGridPanel);
+		if (GridPanel == nullptr)
+		{
+			return false;
+		}
+
+		if (UScrollBoxSlot* const GridPanelSlot = Cast<UScrollBoxSlot>(EnsurePanelChildAt(GridScrollBox, GridPanel, 0)))
+		{
+			if (bCreatedGridPanel)
+			{
+				GridPanelSlot->SetPadding(FMargin(16.0f));
+				GridPanelSlot->SetHorizontalAlignment(HAlign_Fill);
+				GridPanelSlot->SetVerticalAlignment(VAlign_Fill);
+			}
+		}
+
+		if (bCreatedGridPanel)
+		{
+			GridPanel->SetSlotPadding(FMargin(12.0f));
+			GridPanel->SetMinDesiredSlotWidth(180.0f);
+			GridPanel->SetMinDesiredSlotHeight(180.0f);
+		}
+
+		return true;
+	}
+
+	bool BuildTileViewHostWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		bool bCreatedRootCanvas = false;
+		UCanvasPanel* const RootCanvas = EnsureRootWidget<UCanvasPanel>(WidgetBlueprint, TEXT("RootCanvas"), bCreatedRootCanvas);
+		if (RootCanvas == nullptr)
+		{
+			return false;
+		}
+
+		bool bCreatedTileView = false;
+		UTileView* const TileViewWidget = FindOrCreateWidget<UTileView>(WidgetBlueprint, TEXT("TileView"), bCreatedTileView);
+		if (TileViewWidget == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedTileView)
+		{
+			TileViewWidget->SetEntryWidth(180.0f);
+			TileViewWidget->SetEntryHeight(180.0f);
+		}
+
+		if (UCanvasPanelSlot* const TileViewSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, TileViewWidget, 0)))
+		{
+			if (bCreatedTileView)
+			{
+				TileViewSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+				TileViewSlot->SetOffsets(FMargin(0.0f, 0.0f, 0.0f, 0.0f));
+				TileViewSlot->SetZOrder(0);
+			}
+		}
+
+		return true;
+	}
+
+	bool BuildTileViewEntryWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		bool bCreatedEntryBox = false;
+		USizeBox* const EntryBox = EnsureRootWidget<USizeBox>(WidgetBlueprint, TEXT("EntryBox"), bCreatedEntryBox);
+		if (EntryBox == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedEntryBox)
+		{
+			EntryBox->SetMinDesiredWidth(160.0f);
+			EntryBox->SetMinDesiredHeight(160.0f);
+		}
+
+		bool bCreatedEntryCard = false;
+		UBorder* const EntryCard = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("EntryCard"), bCreatedEntryCard);
+		if (EntryCard == nullptr || EnsureContent(EntryBox, EntryCard) == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedEntryCard)
+		{
+			EntryCard->SetPadding(FMargin(14.0f));
+			EntryCard->SetBrushColor(FLinearColor(0.09f, 0.10f, 0.12f, 1.0f));
+			EntryCard->SetHorizontalAlignment(HAlign_Fill);
+			EntryCard->SetVerticalAlignment(VAlign_Fill);
+		}
+
+		bool bCreatedEntryContent = false;
+		UVerticalBox* const EntryContent =
+			FindOrCreateWidget<UVerticalBox>(WidgetBlueprint, TEXT("EntryContent"), bCreatedEntryContent);
+		if (EntryContent == nullptr || EnsureContent(EntryCard, EntryContent) == nullptr)
+		{
+			return false;
 		}
 
 		return true;
