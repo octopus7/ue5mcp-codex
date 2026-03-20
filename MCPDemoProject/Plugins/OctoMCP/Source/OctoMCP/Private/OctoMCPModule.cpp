@@ -9,9 +9,11 @@
 #include "Components/ButtonSlot.h"
 #include "Components/CanvasPanel.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/ContentWidget.h"
 #include "Components/HorizontalBox.h"
 #include "Components/HorizontalBoxSlot.h"
 #include "Components/Image.h"
+#include "Components/PanelWidget.h"
 #include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
 #include "Components/VerticalBox.h"
@@ -1455,8 +1457,6 @@ private:
 		WidgetBlueprint->WidgetTree->SetFlags(RF_Transactional);
 		WidgetBlueprint->WidgetTree->Modify();
 
-		ResetWidgetBlueprintTree(WidgetBlueprint);
-
 		bool bBuiltScaffold = false;
 		if (Result.ScaffoldType == TEXT("popup"))
 		{
@@ -1548,8 +1548,169 @@ private:
 		check(WidgetBlueprint != nullptr);
 		check(Widget != nullptr);
 
-		Widget->bIsVariable = true;
-		WidgetBlueprint->OnVariableAdded(Widget->GetFName());
+		if (!Widget->bIsVariable)
+		{
+			Widget->bIsVariable = true;
+			WidgetBlueprint->OnVariableAdded(Widget->GetFName());
+		}
+	}
+
+	template <typename TWidget>
+	TWidget* FindWidgetByName(UWidgetBlueprint* WidgetBlueprint, const TCHAR* WidgetName) const
+	{
+		if (WidgetBlueprint == nullptr || WidgetBlueprint->WidgetTree == nullptr)
+		{
+			return nullptr;
+		}
+
+		return Cast<TWidget>(WidgetBlueprint->WidgetTree->FindWidget(FName(WidgetName)));
+	}
+
+	template <typename TWidget>
+	TWidget* FindOrCreateWidget(UWidgetBlueprint* WidgetBlueprint, const TCHAR* WidgetName, bool& bOutCreated) const
+	{
+		bOutCreated = false;
+
+		if (TWidget* const ExistingWidget = FindWidgetByName<TWidget>(WidgetBlueprint, WidgetName))
+		{
+			return ExistingWidget;
+		}
+
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		bOutCreated = true;
+		return WidgetBlueprint->WidgetTree->ConstructWidget<TWidget>(TWidget::StaticClass(), FName(WidgetName));
+	}
+
+	bool RenameWidget(UWidgetBlueprint* WidgetBlueprint, UWidget* Widget, const TCHAR* NewWidgetName) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+		check(Widget != nullptr);
+
+		const FName TargetName(NewWidgetName);
+		if (Widget->GetFName() == TargetName)
+		{
+			return true;
+		}
+
+		if (UWidget* const ExistingWidget = WidgetBlueprint->WidgetTree->FindWidget(TargetName))
+		{
+			return ExistingWidget == Widget;
+		}
+
+		const FName PreviousName = Widget->GetFName();
+		const bool bWasVariable = Widget->bIsVariable;
+		if (bWasVariable)
+		{
+			WidgetBlueprint->OnVariableRemoved(PreviousName);
+		}
+
+		const bool bRenamed = Widget->Rename(
+			*TargetName.ToString(),
+			WidgetBlueprint->WidgetTree,
+			REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional);
+		if (!bRenamed)
+		{
+			if (bWasVariable)
+			{
+				WidgetBlueprint->OnVariableAdded(PreviousName);
+			}
+			return false;
+		}
+
+		if (bWasVariable)
+		{
+			WidgetBlueprint->OnVariableAdded(TargetName);
+		}
+
+		return true;
+	}
+
+	template <typename TRootWidget>
+	TRootWidget* EnsureRootWidget(UWidgetBlueprint* WidgetBlueprint, const TCHAR* WidgetName, bool& bOutCreated) const
+	{
+		check(WidgetBlueprint != nullptr);
+		check(WidgetBlueprint->WidgetTree != nullptr);
+
+		bOutCreated = false;
+
+		if (WidgetBlueprint->WidgetTree->RootWidget == nullptr)
+		{
+			bOutCreated = true;
+			TRootWidget* const RootWidget =
+				WidgetBlueprint->WidgetTree->ConstructWidget<TRootWidget>(TRootWidget::StaticClass(), FName(WidgetName));
+			WidgetBlueprint->WidgetTree->RootWidget = RootWidget;
+			return RootWidget;
+		}
+
+		TRootWidget* const RootWidget = Cast<TRootWidget>(WidgetBlueprint->WidgetTree->RootWidget);
+		if (RootWidget == nullptr)
+		{
+			return nullptr;
+		}
+
+		RenameWidget(WidgetBlueprint, RootWidget, WidgetName);
+		return RootWidget;
+	}
+
+	UPanelSlot* EnsureContent(UContentWidget* ParentWidget, UWidget* ChildWidget) const
+	{
+		if (ParentWidget == nullptr || ChildWidget == nullptr)
+		{
+			return nullptr;
+		}
+
+		if (ParentWidget->GetContent() == ChildWidget)
+		{
+			return ChildWidget->Slot;
+		}
+
+		if (UPanelWidget* const ExistingParent = ChildWidget->GetParent())
+		{
+			ExistingParent->RemoveChild(ChildWidget);
+		}
+
+		return ParentWidget->SetContent(ChildWidget);
+	}
+
+	UPanelSlot* EnsurePanelChildAt(UPanelWidget* ParentWidget, UWidget* ChildWidget, const int32 DesiredIndex) const
+	{
+		if (ParentWidget == nullptr || ChildWidget == nullptr)
+		{
+			return nullptr;
+		}
+
+		UPanelSlot* SlotTemplate = ChildWidget->Slot;
+		if (SlotTemplate != nullptr && !SlotTemplate->IsA(ParentWidget->GetSlotClass()))
+		{
+			SlotTemplate = nullptr;
+		}
+
+		if (UPanelWidget* const ExistingParent = ChildWidget->GetParent())
+		{
+			const int32 ExistingIndex = ExistingParent->GetChildIndex(ChildWidget);
+			const int32 ClampedDesiredIndex = FMath::Clamp(DesiredIndex, 0, ParentWidget->GetChildrenCount());
+			if (ExistingParent == ParentWidget && ExistingIndex == ClampedDesiredIndex)
+			{
+				return ChildWidget->Slot;
+			}
+
+			ExistingParent->RemoveChild(ChildWidget);
+		}
+
+		const int32 InsertIndex = FMath::Clamp(DesiredIndex, 0, ParentWidget->GetChildrenCount());
+		if (InsertIndex >= ParentWidget->GetChildrenCount())
+		{
+			return SlotTemplate != nullptr
+				? ParentWidget->AddChild(ChildWidget, SlotTemplate)
+				: ParentWidget->AddChild(ChildWidget);
+		}
+
+		return SlotTemplate != nullptr
+			? ParentWidget->InsertChildAt(InsertIndex, ChildWidget, SlotTemplate)
+			: ParentWidget->InsertChildAt(InsertIndex, ChildWidget);
 	}
 
 	bool BuildPopupWidgetScaffold(UWidgetBlueprint* WidgetBlueprint) const
@@ -1557,130 +1718,298 @@ private:
 		check(WidgetBlueprint != nullptr);
 		check(WidgetBlueprint->WidgetTree != nullptr);
 
-		UWidgetTree* const WidgetTree = WidgetBlueprint->WidgetTree;
-
-		UCanvasPanel* const RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+		bool bCreatedRootCanvas = false;
+		UCanvasPanel* const RootCanvas = EnsureRootWidget<UCanvasPanel>(WidgetBlueprint, TEXT("RootCanvas"), bCreatedRootCanvas);
 		if (RootCanvas == nullptr)
 		{
 			return false;
 		}
 
-		WidgetTree->RootWidget = RootCanvas;
-
-		UBorder* const Backdrop = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("Backdrop"));
-		Backdrop->SetBrushColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.58f));
-
-		if (UCanvasPanelSlot* const BackdropSlot = RootCanvas->AddChildToCanvas(Backdrop))
+		bool bCreatedBackdrop = false;
+		UBorder* const Backdrop = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("Backdrop"), bCreatedBackdrop);
+		if (Backdrop == nullptr)
 		{
-			BackdropSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
-			BackdropSlot->SetOffsets(FMargin(0.0f, 0.0f, 0.0f, 0.0f));
-			BackdropSlot->SetZOrder(0);
+			return false;
 		}
 
-		UBorder* const PopupCard = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("PopupCard"));
-		PopupCard->SetPadding(FMargin(28.0f));
-		PopupCard->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 1.0f));
-		PopupCard->SetHorizontalAlignment(HAlign_Fill);
-		PopupCard->SetVerticalAlignment(VAlign_Fill);
-
-		if (UCanvasPanelSlot* const PopupCardSlot = RootCanvas->AddChildToCanvas(PopupCard))
+		if (bCreatedBackdrop)
 		{
-			PopupCardSlot->SetAnchors(FAnchors(0.5f, 0.5f));
-			PopupCardSlot->SetAlignment(FVector2D(0.5f, 0.5f));
-			PopupCardSlot->SetOffsets(FMargin(0.0f, 0.0f, 560.0f, 640.0f));
-			PopupCardSlot->SetZOrder(1);
+			Backdrop->SetBrushColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.58f));
 		}
 
-		UVerticalBox* const PopupContent = WidgetTree->ConstructWidget<UVerticalBox>(UVerticalBox::StaticClass(), TEXT("PopupContent"));
-		PopupCard->AddChild(PopupContent);
-
-		UHorizontalBox* const HeaderRow = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("HeaderRow"));
-		if (UVerticalBoxSlot* const HeaderSlot = PopupContent->AddChildToVerticalBox(HeaderRow))
+		if (UCanvasPanelSlot* const BackdropSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, Backdrop, 0)))
 		{
-			HeaderSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 18.0f));
-			HeaderSlot->SetHorizontalAlignment(HAlign_Fill);
-			HeaderSlot->SetVerticalAlignment(VAlign_Center);
+			if (bCreatedBackdrop)
+			{
+				BackdropSlot->SetAnchors(FAnchors(0.0f, 0.0f, 1.0f, 1.0f));
+				BackdropSlot->SetOffsets(FMargin(0.0f, 0.0f, 0.0f, 0.0f));
+				BackdropSlot->SetZOrder(0);
+			}
 		}
 
-		UTextBlock* const TitleText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TitleText"));
-		TitleText->SetText(FText::FromString(TEXT("Popup Title")));
-		TitleText->SetAutoWrapText(true);
-		TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-		RegisterBindableWidget(WidgetBlueprint, TitleText);
-
-		if (UHorizontalBoxSlot* const TitleSlot = HeaderRow->AddChildToHorizontalBox(TitleText))
+		bool bCreatedPopupCard = false;
+		UBorder* const PopupCard = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("PopupCard"), bCreatedPopupCard);
+		if (PopupCard == nullptr)
 		{
-			FSlateChildSize FillSize(ESlateSizeRule::Fill);
-			FillSize.Value = 1.0f;
-			TitleSlot->SetSize(FillSize);
-			TitleSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
-			TitleSlot->SetHorizontalAlignment(HAlign_Left);
-			TitleSlot->SetVerticalAlignment(VAlign_Center);
+			return false;
 		}
 
-		UButton* const CloseButton = WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("CloseButton"));
-		CloseButton->SetBackgroundColor(FLinearColor(0.16f, 0.17f, 0.20f, 1.0f));
+		if (bCreatedPopupCard)
+		{
+			PopupCard->SetPadding(FMargin(28.0f));
+			PopupCard->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 1.0f));
+			PopupCard->SetHorizontalAlignment(HAlign_Fill);
+			PopupCard->SetVerticalAlignment(VAlign_Fill);
+		}
+
+		if (UCanvasPanelSlot* const PopupCardSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, PopupCard, 1)))
+		{
+			if (bCreatedPopupCard)
+			{
+				PopupCardSlot->SetAnchors(FAnchors(0.5f, 0.5f));
+				PopupCardSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+				PopupCardSlot->SetOffsets(FMargin(0.0f, 0.0f, 560.0f, 640.0f));
+				PopupCardSlot->SetZOrder(1);
+			}
+		}
+
+		bool bCreatedPopupContent = false;
+		UVerticalBox* const PopupContent = FindOrCreateWidget<UVerticalBox>(WidgetBlueprint, TEXT("PopupContent"), bCreatedPopupContent);
+		if (PopupContent == nullptr || EnsureContent(PopupCard, PopupContent) == nullptr)
+		{
+			return false;
+		}
+
+		bool bCreatedHeaderRow = false;
+		UHorizontalBox* const HeaderRow = FindOrCreateWidget<UHorizontalBox>(WidgetBlueprint, TEXT("HeaderRow"), bCreatedHeaderRow);
+		if (HeaderRow == nullptr)
+		{
+			return false;
+		}
+
+		if (UVerticalBoxSlot* const HeaderSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, HeaderRow, 0)))
+		{
+			if (bCreatedHeaderRow)
+			{
+				HeaderSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 18.0f));
+				HeaderSlot->SetHorizontalAlignment(HAlign_Fill);
+				HeaderSlot->SetVerticalAlignment(VAlign_Center);
+			}
+		}
+
+		UTextBlock* HeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"));
+		if (HeaderText == nullptr)
+		{
+			if (UTextBlock* const LegacyHeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("TitleText")))
+			{
+				if (LegacyHeaderText->GetParent() == HeaderRow)
+				{
+					if (!RenameWidget(WidgetBlueprint, LegacyHeaderText, TEXT("HeaderText")))
+					{
+						return false;
+					}
+					HeaderText = FindWidgetByName<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"));
+				}
+			}
+		}
+
+		bool bCreatedHeaderText = false;
+		if (HeaderText == nullptr)
+		{
+			HeaderText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("HeaderText"), bCreatedHeaderText);
+		}
+
+		if (HeaderText == nullptr)
+		{
+			return false;
+		}
+
+		RegisterBindableWidget(WidgetBlueprint, HeaderText);
+
+		if (bCreatedHeaderText)
+		{
+			HeaderText->SetText(FText::FromString(TEXT("Popup Header")));
+			HeaderText->SetAutoWrapText(true);
+			HeaderText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
+
+		if (UHorizontalBoxSlot* const HeaderTextSlot = Cast<UHorizontalBoxSlot>(EnsurePanelChildAt(HeaderRow, HeaderText, 0)))
+		{
+			if (bCreatedHeaderText)
+			{
+				FSlateChildSize FillSize(ESlateSizeRule::Fill);
+				FillSize.Value = 1.0f;
+				HeaderTextSlot->SetSize(FillSize);
+				HeaderTextSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+				HeaderTextSlot->SetHorizontalAlignment(HAlign_Left);
+				HeaderTextSlot->SetVerticalAlignment(VAlign_Center);
+			}
+		}
+
+		bool bCreatedCloseButton = false;
+		UButton* const CloseButton = FindOrCreateWidget<UButton>(WidgetBlueprint, TEXT("CloseButton"), bCreatedCloseButton);
+		if (CloseButton == nullptr)
+		{
+			return false;
+		}
+
 		RegisterBindableWidget(WidgetBlueprint, CloseButton);
-
-		if (UHorizontalBoxSlot* const CloseSlot = HeaderRow->AddChildToHorizontalBox(CloseButton))
+		if (bCreatedCloseButton)
 		{
-			CloseSlot->SetHorizontalAlignment(HAlign_Right);
-			CloseSlot->SetVerticalAlignment(VAlign_Center);
+			CloseButton->SetBackgroundColor(FLinearColor(0.16f, 0.17f, 0.20f, 1.0f));
 		}
 
-		UTextBlock* const CloseLabel = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("CloseLabel"));
-		CloseLabel->SetText(FText::FromString(TEXT("Close")));
-		CloseLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-
-		if (UButtonSlot* const CloseButtonSlot = Cast<UButtonSlot>(CloseButton->AddChild(CloseLabel)))
+		if (UHorizontalBoxSlot* const CloseSlot = Cast<UHorizontalBoxSlot>(EnsurePanelChildAt(HeaderRow, CloseButton, 1)))
 		{
-			CloseButtonSlot->SetPadding(FMargin(12.0f, 6.0f));
-			CloseButtonSlot->SetHorizontalAlignment(HAlign_Center);
-			CloseButtonSlot->SetVerticalAlignment(VAlign_Center);
+			if (bCreatedCloseButton)
+			{
+				CloseSlot->SetHorizontalAlignment(HAlign_Right);
+				CloseSlot->SetVerticalAlignment(VAlign_Center);
+			}
 		}
 
-		USizeBox* const ImageBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("ImageBox"));
-		ImageBox->SetHeightOverride(220.0f);
-		if (UVerticalBoxSlot* const ImageBoxSlot = PopupContent->AddChildToVerticalBox(ImageBox))
+		bool bCreatedCloseLabel = false;
+		UTextBlock* const CloseLabel = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("CloseLabel"), bCreatedCloseLabel);
+		if (CloseLabel == nullptr || EnsureContent(CloseButton, CloseLabel) == nullptr)
 		{
-			ImageBoxSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
-			ImageBoxSlot->SetHorizontalAlignment(HAlign_Fill);
-			ImageBoxSlot->SetVerticalAlignment(VAlign_Fill);
+			return false;
 		}
 
-		UBorder* const ImageFrame = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("ImageFrame"));
-		ImageFrame->SetBrushColor(FLinearColor(0.14f, 0.15f, 0.18f, 1.0f));
-		ImageFrame->SetPadding(FMargin(12.0f));
-		ImageFrame->SetHorizontalAlignment(HAlign_Fill);
-		ImageFrame->SetVerticalAlignment(VAlign_Fill);
-		ImageBox->AddChild(ImageFrame);
+		if (bCreatedCloseLabel)
+		{
+			CloseLabel->SetText(FText::FromString(TEXT("Close")));
+			CloseLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
 
-		UImage* const PopupImage = WidgetTree->ConstructWidget<UImage>(UImage::StaticClass(), TEXT("PopupImage"));
-		PopupImage->SetDesiredSizeOverride(FVector2D(504.0f, 196.0f));
+		if (UButtonSlot* const CloseButtonSlot = Cast<UButtonSlot>(CloseButton->GetContentSlot()))
+		{
+			if (bCreatedCloseLabel)
+			{
+				CloseButtonSlot->SetPadding(FMargin(12.0f, 6.0f));
+				CloseButtonSlot->SetHorizontalAlignment(HAlign_Center);
+				CloseButtonSlot->SetVerticalAlignment(VAlign_Center);
+			}
+		}
+
+		bool bCreatedImageBox = false;
+		USizeBox* const ImageBox = FindOrCreateWidget<USizeBox>(WidgetBlueprint, TEXT("ImageBox"), bCreatedImageBox);
+		if (ImageBox == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedImageBox)
+		{
+			ImageBox->SetHeightOverride(220.0f);
+		}
+
+		if (UVerticalBoxSlot* const ImageBoxSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, ImageBox, 1)))
+		{
+			if (bCreatedImageBox)
+			{
+				ImageBoxSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 16.0f));
+				ImageBoxSlot->SetHorizontalAlignment(HAlign_Fill);
+				ImageBoxSlot->SetVerticalAlignment(VAlign_Fill);
+			}
+		}
+
+		bool bCreatedImageFrame = false;
+		UBorder* const ImageFrame = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("ImageFrame"), bCreatedImageFrame);
+		if (ImageFrame == nullptr || EnsureContent(ImageBox, ImageFrame) == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedImageFrame)
+		{
+			ImageFrame->SetBrushColor(FLinearColor(0.14f, 0.15f, 0.18f, 1.0f));
+			ImageFrame->SetPadding(FMargin(12.0f));
+			ImageFrame->SetHorizontalAlignment(HAlign_Fill);
+			ImageFrame->SetVerticalAlignment(VAlign_Fill);
+		}
+
+		bool bCreatedPopupImage = false;
+		UImage* const PopupImage = FindOrCreateWidget<UImage>(WidgetBlueprint, TEXT("PopupImage"), bCreatedPopupImage);
+		if (PopupImage == nullptr || EnsureContent(ImageFrame, PopupImage) == nullptr)
+		{
+			return false;
+		}
+
 		RegisterBindableWidget(WidgetBlueprint, PopupImage);
-		ImageFrame->AddChild(PopupImage);
-
-		UTextBlock* const BodyText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("BodyText"));
-		BodyText->SetText(FText::FromString(TEXT("Primary description goes here.")));
-		BodyText->SetAutoWrapText(true);
-		BodyText->SetColorAndOpacity(FSlateColor(FLinearColor(0.92f, 0.94f, 0.96f, 1.0f)));
-		RegisterBindableWidget(WidgetBlueprint, BodyText);
-
-		if (UVerticalBoxSlot* const BodySlot = PopupContent->AddChildToVerticalBox(BodyText))
+		if (bCreatedPopupImage)
 		{
-			BodySlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 12.0f));
-			BodySlot->SetHorizontalAlignment(HAlign_Fill);
+			PopupImage->SetDesiredSizeOverride(FVector2D(504.0f, 196.0f));
 		}
 
-		UTextBlock* const FooterText = WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("FooterText"));
-		FooterText->SetText(FText::FromString(TEXT("Secondary supporting text.")));
-		FooterText->SetAutoWrapText(true);
-		FooterText->SetColorAndOpacity(FSlateColor(FLinearColor(0.72f, 0.76f, 0.82f, 1.0f)));
-		RegisterBindableWidget(WidgetBlueprint, FooterText);
-
-		if (UVerticalBoxSlot* const FooterSlot = PopupContent->AddChildToVerticalBox(FooterText))
+		bool bCreatedTitleText = false;
+		UTextBlock* const TitleText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("TitleText"), bCreatedTitleText);
+		if (TitleText == nullptr)
 		{
-			FooterSlot->SetHorizontalAlignment(HAlign_Fill);
+			return false;
+		}
+
+		RegisterBindableWidget(WidgetBlueprint, TitleText);
+		if (bCreatedTitleText)
+		{
+			TitleText->SetText(FText::FromString(TEXT("Popup Title")));
+			TitleText->SetAutoWrapText(true);
+			TitleText->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
+
+		if (UVerticalBoxSlot* const TitleTextSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, TitleText, 2)))
+		{
+			if (bCreatedTitleText)
+			{
+				TitleTextSlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 8.0f));
+				TitleTextSlot->SetHorizontalAlignment(HAlign_Fill);
+			}
+		}
+
+		bool bCreatedBodyText = false;
+		UTextBlock* const BodyText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("BodyText"), bCreatedBodyText);
+		if (BodyText == nullptr)
+		{
+			return false;
+		}
+
+		RegisterBindableWidget(WidgetBlueprint, BodyText);
+		if (bCreatedBodyText)
+		{
+			BodyText->SetText(FText::FromString(TEXT("Primary description goes here.")));
+			BodyText->SetAutoWrapText(true);
+			BodyText->SetColorAndOpacity(FSlateColor(FLinearColor(0.92f, 0.94f, 0.96f, 1.0f)));
+		}
+
+		if (UVerticalBoxSlot* const BodySlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, BodyText, 3)))
+		{
+			if (bCreatedBodyText)
+			{
+				BodySlot->SetPadding(FMargin(0.0f, 0.0f, 0.0f, 12.0f));
+				BodySlot->SetHorizontalAlignment(HAlign_Fill);
+			}
+		}
+
+		bool bCreatedFooterText = false;
+		UTextBlock* const FooterText = FindOrCreateWidget<UTextBlock>(WidgetBlueprint, TEXT("FooterText"), bCreatedFooterText);
+		if (FooterText == nullptr)
+		{
+			return false;
+		}
+
+		RegisterBindableWidget(WidgetBlueprint, FooterText);
+		if (bCreatedFooterText)
+		{
+			FooterText->SetText(FText::FromString(TEXT("Secondary supporting text.")));
+			FooterText->SetAutoWrapText(true);
+			FooterText->SetColorAndOpacity(FSlateColor(FLinearColor(0.72f, 0.76f, 0.82f, 1.0f)));
+		}
+
+		if (UVerticalBoxSlot* const FooterSlot = Cast<UVerticalBoxSlot>(EnsurePanelChildAt(PopupContent, FooterText, 4)))
+		{
+			if (bCreatedFooterText)
+			{
+				FooterSlot->SetHorizontalAlignment(HAlign_Fill);
+			}
 		}
 
 		return true;
@@ -1691,60 +2020,110 @@ private:
 		check(WidgetBlueprint != nullptr);
 		check(WidgetBlueprint->WidgetTree != nullptr);
 
-		UWidgetTree* const WidgetTree = WidgetBlueprint->WidgetTree;
-
-		UCanvasPanel* const RootCanvas = WidgetTree->ConstructWidget<UCanvasPanel>(UCanvasPanel::StaticClass(), TEXT("RootCanvas"));
+		bool bCreatedRootCanvas = false;
+		UCanvasPanel* const RootCanvas = EnsureRootWidget<UCanvasPanel>(WidgetBlueprint, TEXT("RootCanvas"), bCreatedRootCanvas);
 		if (RootCanvas == nullptr)
 		{
 			return false;
 		}
 
-		WidgetTree->RootWidget = RootCanvas;
-
-		USizeBox* const BarBox = WidgetTree->ConstructWidget<USizeBox>(USizeBox::StaticClass(), TEXT("BarBox"));
-		BarBox->SetWidthOverride(880.0f);
-		BarBox->SetHeightOverride(96.0f);
-
-		if (UCanvasPanelSlot* const BarBoxSlot = RootCanvas->AddChildToCanvas(BarBox))
+		bool bCreatedBarBox = false;
+		USizeBox* const BarBox = FindOrCreateWidget<USizeBox>(WidgetBlueprint, TEXT("BarBox"), bCreatedBarBox);
+		if (BarBox == nullptr)
 		{
-			BarBoxSlot->SetAnchors(FAnchors(0.5f, 1.0f));
-			BarBoxSlot->SetAlignment(FVector2D(0.5f, 1.0f));
-			BarBoxSlot->SetOffsets(FMargin(0.0f, -24.0f, 880.0f, 96.0f));
+			return false;
 		}
 
-		UBorder* const BarFrame = WidgetTree->ConstructWidget<UBorder>(UBorder::StaticClass(), TEXT("BarFrame"));
-		BarFrame->SetPadding(FMargin(18.0f));
-		BarFrame->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 0.96f));
-		BarFrame->SetHorizontalAlignment(HAlign_Fill);
-		BarFrame->SetVerticalAlignment(VAlign_Fill);
-		BarBox->AddChild(BarFrame);
+		if (bCreatedBarBox)
+		{
+			BarBox->SetWidthOverride(880.0f);
+			BarBox->SetHeightOverride(96.0f);
+		}
 
-		UHorizontalBox* const ButtonContainer = WidgetTree->ConstructWidget<UHorizontalBox>(UHorizontalBox::StaticClass(), TEXT("ButtonContainer"));
+		if (UCanvasPanelSlot* const BarBoxSlot = Cast<UCanvasPanelSlot>(EnsurePanelChildAt(RootCanvas, BarBox, 0)))
+		{
+			if (bCreatedBarBox)
+			{
+				BarBoxSlot->SetAnchors(FAnchors(0.5f, 1.0f));
+				BarBoxSlot->SetAlignment(FVector2D(0.5f, 1.0f));
+				BarBoxSlot->SetOffsets(FMargin(0.0f, -24.0f, 880.0f, 96.0f));
+			}
+		}
+
+		bool bCreatedBarFrame = false;
+		UBorder* const BarFrame = FindOrCreateWidget<UBorder>(WidgetBlueprint, TEXT("BarFrame"), bCreatedBarFrame);
+		if (BarFrame == nullptr || EnsureContent(BarBox, BarFrame) == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedBarFrame)
+		{
+			BarFrame->SetPadding(FMargin(18.0f));
+			BarFrame->SetBrushColor(FLinearColor(0.08f, 0.09f, 0.11f, 0.96f));
+			BarFrame->SetHorizontalAlignment(HAlign_Fill);
+			BarFrame->SetVerticalAlignment(VAlign_Fill);
+		}
+
+		bool bCreatedButtonContainer = false;
+		UHorizontalBox* const ButtonContainer =
+			FindOrCreateWidget<UHorizontalBox>(WidgetBlueprint, TEXT("ButtonContainer"), bCreatedButtonContainer);
+		if (ButtonContainer == nullptr || EnsureContent(BarFrame, ButtonContainer) == nullptr)
+		{
+			return false;
+		}
+
 		RegisterBindableWidget(WidgetBlueprint, ButtonContainer);
-		BarFrame->AddChild(ButtonContainer);
 
+		bool bCreatedTestPopupOpenButton = false;
 		UButton* const TestPopupOpenButton =
-			WidgetTree->ConstructWidget<UButton>(UButton::StaticClass(), TEXT("TestPopupOpenButton"));
-		TestPopupOpenButton->SetBackgroundColor(FLinearColor(0.19f, 0.34f, 0.73f, 1.0f));
-		RegisterBindableWidget(WidgetBlueprint, TestPopupOpenButton);
-
-		if (UHorizontalBoxSlot* const TestPopupOpenButtonSlot = ButtonContainer->AddChildToHorizontalBox(TestPopupOpenButton))
+			FindOrCreateWidget<UButton>(WidgetBlueprint, TEXT("TestPopupOpenButton"), bCreatedTestPopupOpenButton);
+		if (TestPopupOpenButton == nullptr)
 		{
-			TestPopupOpenButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
-			TestPopupOpenButtonSlot->SetHorizontalAlignment(HAlign_Left);
-			TestPopupOpenButtonSlot->SetVerticalAlignment(VAlign_Center);
+			return false;
 		}
 
-		UTextBlock* const TestPopupOpenButtonLabel =
-			WidgetTree->ConstructWidget<UTextBlock>(UTextBlock::StaticClass(), TEXT("TestPopupOpenButtonLabel"));
-		TestPopupOpenButtonLabel->SetText(FText::FromString(TEXT("Open Test Popup")));
-		TestPopupOpenButtonLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
-
-		if (UButtonSlot* const TestPopupOpenButtonContentSlot = Cast<UButtonSlot>(TestPopupOpenButton->AddChild(TestPopupOpenButtonLabel)))
+		RegisterBindableWidget(WidgetBlueprint, TestPopupOpenButton);
+		if (bCreatedTestPopupOpenButton)
 		{
-			TestPopupOpenButtonContentSlot->SetPadding(FMargin(18.0f, 10.0f));
-			TestPopupOpenButtonContentSlot->SetHorizontalAlignment(HAlign_Center);
-			TestPopupOpenButtonContentSlot->SetVerticalAlignment(VAlign_Center);
+			TestPopupOpenButton->SetBackgroundColor(FLinearColor(0.19f, 0.34f, 0.73f, 1.0f));
+		}
+
+		if (UHorizontalBoxSlot* const TestPopupOpenButtonSlot =
+				Cast<UHorizontalBoxSlot>(EnsurePanelChildAt(ButtonContainer, TestPopupOpenButton, 0)))
+		{
+			if (bCreatedTestPopupOpenButton)
+			{
+				TestPopupOpenButtonSlot->SetPadding(FMargin(0.0f, 0.0f, 12.0f, 0.0f));
+				TestPopupOpenButtonSlot->SetHorizontalAlignment(HAlign_Left);
+				TestPopupOpenButtonSlot->SetVerticalAlignment(VAlign_Center);
+			}
+		}
+
+		bool bCreatedTestPopupOpenButtonLabel = false;
+		UTextBlock* const TestPopupOpenButtonLabel = FindOrCreateWidget<UTextBlock>(
+			WidgetBlueprint,
+			TEXT("TestPopupOpenButtonLabel"),
+			bCreatedTestPopupOpenButtonLabel);
+		if (TestPopupOpenButtonLabel == nullptr || EnsureContent(TestPopupOpenButton, TestPopupOpenButtonLabel) == nullptr)
+		{
+			return false;
+		}
+
+		if (bCreatedTestPopupOpenButtonLabel)
+		{
+			TestPopupOpenButtonLabel->SetText(FText::FromString(TEXT("Open Test Popup")));
+			TestPopupOpenButtonLabel->SetColorAndOpacity(FSlateColor(FLinearColor::White));
+		}
+
+		if (UButtonSlot* const TestPopupOpenButtonContentSlot = Cast<UButtonSlot>(TestPopupOpenButton->GetContentSlot()))
+		{
+			if (bCreatedTestPopupOpenButtonLabel)
+			{
+				TestPopupOpenButtonContentSlot->SetPadding(FMargin(18.0f, 10.0f));
+				TestPopupOpenButtonContentSlot->SetHorizontalAlignment(HAlign_Center);
+				TestPopupOpenButtonContentSlot->SetVerticalAlignment(VAlign_Center);
+			}
 		}
 
 		return true;
